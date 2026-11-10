@@ -308,6 +308,10 @@ nav.tabs .wrap{grid-template-columns:repeat(4,1fr)}
 .wl.off{color:var(--muted)}
 .tog.sm{padding:3px 9px;font-size:12px;margin-left:4px;vertical-align:1px}
 .mhint .tog.sm{margin-left:0}
+.pitem.bk .lnk.sm{color:var(--muted);font-weight:600;white-space:nowrap}
+.pitem.bk .tog.sm{margin-right:10px;white-space:nowrap}
+#toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;max-width:calc(100% - 32px);opacity:0;pointer-events:none;transition:.2s;z-index:60}
+#toast.show{opacity:1;transform:translate(-50%,0)}
 </style>
 
 </head>
@@ -1743,7 +1747,7 @@ function decorateMeals(x){if(x.d<TODAY)return;
   Array.prototype.forEach.call(cards,function(c,k){var m=x.meals.filter(function(q){return R[q[2]]&&q[1]!=='her'})[k];if(!m)return;var r=R[m[2]];
     if(r.leftover||m[1]==='her')return;
     var bar=document.createElement('div');bar.className='mbar';
-    if(disliked(m[2])){var w=document.createElement('p');w.className='mwarn';w.textContent='Это блюдо не понравилось — замените его кнопкой ниже.';c.insertAdjacentElement('afterend',w);c=w}
+    if(disliked(m[2])){var w=document.createElement('p');w.className='mwarn';w.textContent=hiddenDish(m[2])?'Это блюдо в «Скрытых» — замените его кнопкой ниже.':'Это блюдо не понравилось — замените его кнопкой ниже.';c.insertAdjacentElement('afterend',w);c=w}
     bar.innerHTML='<button type="button" class="mb" data-pk="swap|'+m[0]+'">⇄ Другой день</button><button type="button" class="mb" data-pk="book|'+m[0]+'">↻ Заменить блюдо</button>';
     c.insertAdjacentElement('afterend',bar);
     if(m[0]==='Ужин'){var hn=dinnerHint(cur);if(hn){var hd=document.createElement('div');hd.innerHTML=hn;bar.insertAdjacentElement('beforebegin',hd.firstChild)}}
@@ -1824,22 +1828,24 @@ function portionMeta(id){var r=R[id];if(!PRIV||(r&&r.kcal&&r.kcal[0]))return '';
   return '<span class="h">Мише <i>≈ '+pi.himK+'</i> ккал</span><span class="s">Поле <i>≈ '+pi.herK+'</i> ккал</span>'}
 function portionFacts(id){var r=R[id];if(!PRIV||(r&&r.kcal&&r.kcal[0]))return '';var pi=portionInfo(id);if(!pi)return '';
   return '<div class="fact h"><b>Мише · '+fracTxt(pi.him)+'</b><span>≈ '+pi.himK+'</span></div><div class="fact s"><b>Поле · '+fracTxt(pi.her)+'</b><span>≈ '+pi.herK+'</span></div>'}
-function disliked(k){var r=DATA.ratings[k];return !!(r&&(r.him===1||r.her===1||(avg(r)&&avg(r)<=2)))}
+function hiddenDish(k){var r=R[k];return !!EXTRA['hide-'+(r&&r.src||k)]}
+function disliked(k){var r=DATA.ratings[k];return hiddenDish(k)||!!(r&&(r.him===1||r.her===1||(avg(r)&&avg(r)<=2)))}
 
 /* Вкладка «Книга» */
 var BK={f:'all',q:'',quick:false,add:null}; // add: {busy, text, res, err}
 function bookList(){return Object.keys(R).filter(function(k){var r=R[k];return r.book||(!r.leftover&&!r.ai&&!/^b-|^l-/.test(k)&&r.ing)})}
 function renderBook(){var el=$('v-book');if(!el)return;var q=BK.q.trim().toLowerCase();
-  var list=bookList().filter(function(k){var r=R[k];return (BK.f==='all'||r.tag===BK.f||(BK.f==='mine'&&r.user))&&(!BK.quick||(r.mins||parseInt(r.time)||99)<=30)&&(!q||r.title.toLowerCase().indexOf(q)>-1||r.ing.some(function(a){return a[0].toLowerCase().indexOf(q)>-1}))})
+  var nHid=bookList().filter(hiddenDish).length;if(BK.f==='hidden'&&!nHid)BK.f='all';
+  var list=bookList().filter(function(k){var r=R[k];if(BK.f==='hidden')return hiddenDish(k);if(hiddenDish(k))return false;return (BK.f==='all'||r.tag===BK.f||(BK.f==='mine'&&r.user))&&(!BK.quick||(r.mins||parseInt(r.time)||99)<=30)&&(!q||r.title.toLowerCase().indexOf(q)>-1||r.ing.some(function(a){return a[0].toLowerCase().indexOf(q)>-1}))})
     .sort(function(a,b){return (disliked(a)-disliked(b))||(avg(DATA.ratings[b])-avg(DATA.ratings[a]))||R[a].title.localeCompare(R[b].title,'ru')});
   var focus=document.activeElement&&document.activeElement.id;
   var h='<div class="dayhead"><h2>Книга рецептов</h2><p>'+bookList().length+' блюд. Нажмите, чтобы открыть рецепт.</p></div>'+
    '<input id="bk-q" class="bkq" type="search" placeholder="Поиск: название или продукт, например «курица»" value="'+esc(BK.q)+'">'+
-   '<div class="chips">'+[['all','Все'],['veg','Без мяса'],['fish','Рыба'],['bird','Птица'],['meat','Мясо'],['soup','Супы'],['salad','Салаты'],['mine','Наши']].map(function(c){return '<button type="button" class="chip'+(BK.f===c[0]?' on':'')+'" data-bkf="'+c[0]+'">'+c[1]+'</button>'}).join('')+
+   '<div class="chips">'+[['all','Все'],['veg','Без мяса'],['fish','Рыба'],['bird','Птица'],['meat','Мясо'],['soup','Супы'],['salad','Салаты'],['mine','Наши']].concat(nHid?[['hidden','Скрытые · '+nHid]]:[]).map(function(c){return '<button type="button" class="chip'+(BK.f===c[0]?' on':'')+'" data-bkf="'+c[0]+'">'+c[1]+'</button>'}).join('')+
    '<button type="button" class="chip'+(BK.quick?' on':'')+'" data-bkq="1">До 30 минут</button></div>'+addPanel();
   h+=list.length?'<div class="plist">'+list.map(function(k){var r=R[k],pi=portionInfo(k),d=disliked(k);
     return '<div class="pitem bk'+(d?' dis':'')+'"><button type="button" class="bkopen" data-r="'+k+'"><span>'+(r.tag?TAGS[r.tag]+' · ':'')+esc(r.time)+(PRIV&&pi?' · ≈ '+pi.p+' ккал':'')+ratingText(k)+'</span><b>'+esc(r.title)+'</b>'+
-      (d?'<small class="miss">Не понравилось — больше не предлагается</small>':'')+'</button>'+(r.user?'<button type="button" class="lnk" data-bkdel="'+k+'">Удалить</button>':'')+'</div>'}).join('')+'</div>'
+      (d&&!hiddenDish(k)?'<small class="miss">Низкая оценка — больше не предлагается</small>':'')+'</button>'+(hiddenDish(k)?'<button type="button" class="tog sm" data-bkunhide="'+k+'">Вернуть</button>':'<button type="button" class="lnk sm" data-bkhide="'+k+'">Не нравится</button>')+(r.user?'<button type="button" class="lnk" data-bkdel="'+k+'">Удалить</button>':'')+'</div>'}).join('')+'</div>'
     :'<p class="legend">Ничего не нашлось.</p>';
   el.innerHTML=h;
   if(focus==='bk-q'){var i=$('bk-q');i.focus();i.selectionStart=i.selectionEnd=i.value.length}
@@ -1880,6 +1886,8 @@ document.addEventListener('click',function(e){if(!e.target.closest('#v-book'))re
   if((t=e.target.closest('[data-bkf]'))){BK.f=t.dataset.bkf;renderBook();return}
   if(e.target.closest('[data-bkq]')){BK.quick=!BK.quick;renderBook();return}
   if((t=e.target.closest('[data-bkdel]'))){delUserRecipe(t.dataset.bkdel);return}
+  if((t=e.target.closest('[data-bkhide]'))){setExtra('hide-'+t.dataset.bkhide,{v:1});toast('«'+R[t.dataset.bkhide].title+'» убрано в «Скрытые». Вернуть можно там же.');return}
+  if((t=e.target.closest('[data-bkunhide]'))){setExtra('hide-'+t.dataset.bkunhide,null);toast('Блюдо снова в книге.');return}
   if((t=e.target.closest('[data-r]'))){openRecipe(t.dataset.r);return}
   if((t=e.target.closest('[data-bka]'))){var k=t.dataset.bka;
     if(k==='open'){BK.add={text:''};renderBook();var x=$('bk-add');if(x)x.focus()}
@@ -1889,6 +1897,9 @@ document.addEventListener('click',function(e){if(!e.target.closest('#v-book'))re
     else if(k==='save'){var id=saveUserRecipe(BK.add.res);BK.add=null;BK.f='mine';renderBook();openRecipe(id)}}});
 document.addEventListener('submit',function(e){if(!e.target.closest('[data-bkform]'))return;e.preventDefault();BK.add.text=$('bk-add').value;bookAsk()});
 document.addEventListener('input',function(e){if(e.target.id==='bk-q'){BK.q=e.target.value;renderBook()}else if(e.target.id==='bk-add'&&BK.add)BK.add.text=e.target.value});
+
+function toast(msg){var t=$('toast');if(!t){t=document.createElement('div');t.id='toast';t.setAttribute('role','status');document.body.appendChild(t)}
+  t.textContent=msg;t.className='show';clearTimeout(toast.tm);toast.tm=setTimeout(function(){t.className=''},3000)}
 
 /* ---------- План на месяц: недели 16 ноября — 13 декабря ---------- */
 /* По неделе: [пн, вт, ср, чт, пт ужины], [сб обед, сб ужин], [вс обед, вс ужин]. Обеды Поли пн–пт — остатки ужина накануне. */
