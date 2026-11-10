@@ -236,6 +236,17 @@ body{margin:0}
 .aibuy.ok b{color:var(--herb)}
 .notice.buy{align-items:center}
 .notice.buy span{flex:1}
+.qb{border:0;background:var(--sunken);border-radius:8px;padding:3px 8px;font:inherit;color:var(--ink);cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;white-space:nowrap}
+.scl{display:flex;gap:10px;align-items:center;background:var(--herb-soft);border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:10px}
+.scl svg{flex:none;color:var(--herb)}
+.scl span{flex:1}
+.scl0{margin:0 0 8px}
+.scrow td{background:var(--herb-soft)}
+.sce{display:flex;flex-direction:column;gap:8px;padding:4px 0;white-space:normal}
+.sce label{font-weight:700;font-size:14px}
+.scin{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.scin input{width:90px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;padding:6px 10px;background:var(--surface);color:var(--ink)}
+.sce small{color:var(--muted);font-size:12px}
 </style>
 
 </head>
@@ -395,7 +406,7 @@ function renderMenu(){
     h+='<button type="button" class="meal" data-r="'+m[2]+'"><div class="row"><span class="tag">'+m[0]+'</span><span class="pill '+(m[1]==='her'?'her':'both')+'">'+WHO[m[1]]+'</span></div>'+
       '<h3>'+esc(r.title)+(r.leftover?' <span style="font-weight:500;color:var(--muted)">— вчерашний ужин</span>':'')+'</h3>'+
       '<div class="meta"><span>'+clock.replace('width="15"','width="13"').replace('height="15"','height="13"')+' '+esc(r.time)+'</span>'+
-      (PRIV?((r.kcal[0]?'<span class="h">ему <i>≈ '+r.kcal[0]+'</i> ккал</span>':'')+(r.kcal[1]?'<span class="s">ей <i>≈ '+r.kcal[1]+'</i> ккал</span>':'')):'')+ratingText(m[2])+'</div>'+
+      (PRIV?((r.kcal[0]?'<span class="h">ему <i>≈ '+kc(m[2],r.kcal[0])+'</i> ккал</span>':'')+(r.kcal[1]?'<span class="s">ей <i>≈ '+kc(m[2],r.kcal[1])+'</i> ккал</span>':'')):'')+ratingText(m[2])+'</div>'+
       (r.salad&&!r.leftover?'<p>+ '+esc(r.salad.t.toLowerCase())+'</p>':'')+
       '<div class="go"><span>'+(r.leftover?'Как собрать и разогреть':'Открыть рецепт')+'</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div></button>';
   });
@@ -408,13 +419,13 @@ function openRecipe(id){
   openId=id;var r=R[id];var done=store.get('st_'+id,[]);
   var h='<div class="rh"><span class="tag">'+esc(r.serves)+'</span><h2 id="r-title">'+esc(r.title)+'</h2>'+
    '<div class="facts"><div class="fact"><b>Время</b><span>'+esc(r.time.split(',')[0])+'</span></div>'+
-   (PRIV?((r.kcal[0]?'<div class="fact h"><b>Ему</b><span>≈ '+r.kcal[0]+'</span></div>':'')+
-   (r.kcal[1]?'<div class="fact s"><b>Ей</b><span>≈ '+r.kcal[1]+'</span></div>':'')):'')+'</div>'+
+   (PRIV?((r.kcal[0]?'<div class="fact h"><b>Ему</b><span>≈ '+kc(id,r.kcal[0])+'</span></div>':'')+
+   (r.kcal[1]?'<div class="fact s"><b>Ей</b><span>≈ '+kc(id,r.kcal[1])+'</span></div>':'')):'')+'</div>'+
    (PRIV?'<p class="legend">Калорийность блюда на одну порцию, без салата.</p>':'')+'</div>';
   if(r.ing){
-    h+='<section class="blk"><h3>Ингредиенты</h3><div class="tbl"><table><thead><tr><th>Продукт</th><th>'+(PRIV?'Всего':'Количество')+'</th>'+(PRIV&&(r.cols||r.ing.some(function(a){return a[2]}))?'<th class="h">Ему</th><th class="s">Ей</th>':'')+'</tr></thead><tbody>'+
-     r.ing.map(function(a){var split=PRIV&&(r.cols||r.ing.some(function(z){return z[2]}));
-       return '<tr><td class="n">'+esc(a[0])+'</td><td class="q">'+esc(a[1]||'')+'</td>'+(split?'<td class="h">'+(a[2]?esc(a[2]):'<span class="dash">—</span>')+'</td><td class="s">'+(a[3]?esc(a[3]):'<span class="dash">—</span>')+'</td>':'')+'</tr>'}).join('')+
+    h+='<section class="blk"><h3>Ингредиенты</h3>'+scaleBanner(id)+'<div class="tbl"><table><thead><tr><th>Продукт</th><th>'+(PRIV?'Всего':'Количество')+'</th>'+(PRIV&&(r.cols||r.ing.some(function(a){return a[2]}))?'<th class="h">Ему</th><th class="s">Ей</th>':'')+'</tr></thead><tbody>'+
+     r.ing.map(function(a,ii){var split=PRIV&&(r.cols||r.ing.some(function(z){return z[2]}));var f=scaleOf(id),bn=baseNum(a[1]);
+       return '<tr><td class="n">'+esc(a[0])+'</td><td class="q">'+(bn?'<button type="button" class="qb" data-sc="'+ii+'">'+esc(sq(a[1],f))+'</button>':esc(a[1]||''))+'</td>'+(split?'<td class="h">'+(a[2]?esc(sq(a[2],f)):'<span class="dash">—</span>')+'</td><td class="s">'+(a[3]?esc(sq(a[3],f)):'<span class="dash">—</span>')+'</td>':'')+'</tr>'+(SCED&&SCED.id===id&&SCED.i===ii&&bn?scaleEditor(id,ii,split?4:2):'')}).join('')+
      '</tbody></table></div>'+(PRIV&&r.ing.some(function(a){return /2 ×/.test(a[3]||'')})?'<p class="legend">«2 ×» у неё — порция на ужин и такая же в ланчбокс. Граммовки — в сыром виде.</p>':'<p class="legend">Граммовки — в сыром виде.</p>')+'</section>';
   }
   h+='<section class="blk"><h3>'+(r.leftover?'Как собрать':'Приготовление')+' · отмечайте шаги касанием</h3><ol class="steps">'+
@@ -717,6 +728,51 @@ $('v-menu').addEventListener('submit',function(e){e.preventDefault();var t=$('ai
 $('v-menu').addEventListener('input',function(e){if(e.target.id==='ai-q')AIST.q=e.target.value});
 loadAi();ensureRefs();
 
+/* ---------- Пересчёт рецепта под фактическое количество продукта ---------- */
+var SCED=null,SC_SIG='';
+var FR={'½':.5,'¼':.25,'¾':.75,'⅓':1/3,'⅔':2/3};
+var NUMRE=/(\d+(?:[.,]\d+)?)?\s*([½¼¾⅓⅔])|(\d+(?:[.,]\d+)?)/g;
+function scaleObj(id){var s=EXTRA['scale-'+id];return s&&s.f>0?s:null}
+function scaleOf(id){var s=scaleObj(id);return s?s.f:1}
+function scSig(id){return JSON.stringify(scaleObj(id))+'|'+(SCED&&SCED.id===id?SCED.i:'')}
+function pnum(m1,fr,m3){if(fr)return (m1?parseFloat(m1.replace(',','.')):0)+FR[fr];return parseFloat(m3.replace(',','.'))}
+function fmtNum(v,after){
+  if(/^\s*(г|мл)(?![а-яё])/i.test(after)){v=v>=100?Math.round(v/10)*10:v>=20?Math.round(v/5)*5:Math.max(1,Math.round(v));return String(v)}
+  if(/^\s*(кг|л)(?![а-яё])/i.test(after))return String(Math.round(v*10)/10).replace('.',',');
+  if(v<.375)return '¼';
+  var r=Math.round(v*2)/2,w=Math.floor(r);return (w?String(w):'')+(r-w?'½':'')}
+function sq(s,f){if(!s||f===1)return s||'';var parts=String(s).split('×'),last=parts.pop();
+  last=last.replace(NUMRE,function(all,m1,fr,m3,off,str){var v=pnum(m1,fr,m3);if(!(v>0))return all;
+    var lead=all.match(/^\s*/)[0];return (m1||m3?'':lead)+fmtNum(v*f,str.slice(off+all.length))});
+  return parts.concat([last]).join('×')}
+function baseNum(s){var last=String(s||'').split('×').pop();NUMRE.lastIndex=0;var m=NUMRE.exec(last);NUMRE.lastIndex=0;
+  if(!m)return null;var v=pnum(m[1],m[2],m[3]);return v>0?{v:v,unit:last.slice(m.index+m[0].length).trim()}:null}
+function numTxt(v){return String(Math.round(v*100)/100).replace('.',',')}
+function setScale(id,o){var k='scale-'+id;if(o)EXTRA[k]=o;else delete EXTRA[k];store.set('extra',EXTRA);rerender();
+  if(DB){var ref=DB.doc('extra/'+k);serial('extra/'+k,function(){return o?ref.set({json:JSON.stringify(o),at:Date.now()}):ref.delete()})}}
+function scaleBanner(id){SC_SIG=scSig(id);var s=scaleObj(id),r=R[id];
+  if(!s)return '<p class="legend scl0">Купили другое количество? Нажмите на цифру у продукта, и остальное пересчитается.</p>';
+  var a=r.ing[s.i]||['',''];
+  return '<div class="scl">'+scaleIco+'<span>Пересчитано под <b>'+esc(a[0])+' — '+esc(s.v)+'</b> (×'+numTxt(s.f)+'). В шагах количества указаны для исходного рецепта.</span><button type="button" class="lnk" data-scr="1">Сбросить</button></div>'}
+function scaleEditor(id,i,cols){var a=R[id].ing[i],b=baseNum(a[1]),s=scaleObj(id);
+  var cur=s&&s.i===i?s.v.replace(/[^\d.,]/g,''):numTxt(b.v);
+  return '<tr class="scrow"><td colspan="'+cols+'"><form class="sce" data-sce="'+i+'"><label for="sce-v">Сколько есть на самом деле?</label>'+
+    '<div class="scin"><input id="sce-v" inputmode="decimal" autocomplete="off" value="'+esc(cur)+'"><span>'+esc(b.unit)+'</span>'+
+    '<button type="submit" class="btn pri">Пересчитать</button><button type="button" class="btn" data-scx="1">Отмена</button></div>'+
+    '<small>По рецепту: '+esc(a[1])+'</small></form></td></tr>'}
+var scaleIco='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 7h14M7 7l-3 7a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0z"/></svg>';
+function reopen(){if(!openId)return;var y=$('sheet').scrollTop;openRecipe(openId);$('sheet').scrollTop=y}
+$('sheet-body').addEventListener('click',function(e){
+  var q=e.target.closest('[data-sc]');if(q&&openId){e.stopPropagation();SCED={id:openId,i:+q.dataset.sc};reopen();var inp=$('sce-v');if(inp){inp.focus();inp.select()}return}
+  if(e.target.closest('[data-scx]')){SCED=null;reopen();return}
+  if(e.target.closest('[data-scr]')&&openId){SCED=null;setScale(openId,null);reopen()}});
+$('sheet-body').addEventListener('submit',function(e){var f=e.target.closest('[data-sce]');if(!f||!openId)return;e.preventDefault();
+  var i=+f.dataset.sce,a=R[openId].ing[i],b=baseNum(a[1]),v=parseFloat(($('sce-v').value||'').replace(',','.').replace(/[^\d.]/g,''));
+  if(!(v>0)){$('sce-v').focus();return}
+  var k=v/b.v;if(k<.1||k>10){alert('Слишком большая разница с рецептом. Проверьте число: по рецепту '+a[1]+'.');return}
+  SCED=null;if(Math.abs(k-1)<.001)setScale(openId,null);else setScale(openId,{i:i,f:Math.round(k*1000)/1000,v:numTxt(v)+(b.unit?' '+b.unit:'')});reopen()});
+function kc(id,v){var k=R[id]&&R[id].src||id,f=scaleOf(k);return f===1?v:Math.round(v*f/10)*10}
+
 /* ---------- Навигация ---------- */
 var tab=store.get('tab','menu');
 function showTab(t){tab=t;store.set('tab',t);['menu','shop','norms'].forEach(function(x){$('v-'+x).hidden=x!==t});
@@ -737,7 +793,7 @@ $('sheet-body').addEventListener('click',function(e){
 });
 
 rerender=function(){renderMenu();renderShop();renderNorms();
-  if(openId){var b=$('rate-box');var ae=document.activeElement;if(b&&!(ae&&ae.dataset&&ae.dataset.note))b.innerHTML=rateBlock(openId)}};
+  if(openId&&SC_SIG!==scSig(openId)){reopen()}else if(openId){var b=$('rate-box');var ae=document.activeElement;if(b&&!(ae&&ae.dataset&&ae.dataset.note))b.innerHTML=rateBlock(openId)}};
 renderDays();renderMenu();renderShop();renderNorms();showTab(tab);connect();
 })();
 </script>
