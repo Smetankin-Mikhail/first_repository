@@ -199,6 +199,35 @@ nav.tabs button[aria-current="page"]{color:var(--herb)}
 .rank .rr span{flex:1;min-width:0}
 .rank .rr em{font-style:normal;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
 @media (max-width:380px){.addrow{grid-template-columns:1fr 70px}.addrow .btn{grid-column:1/-1}.facts{grid-template-columns:1fr 1fr}.days{gap:4px}.day span{font-size:15px}}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0}
+.aibtn{display:grid;grid-template-columns:auto 1fr;column-gap:10px;align-items:center;width:100%;text-align:left;border:1px dashed var(--herb);background:var(--herb-soft);color:var(--herb);border-radius:var(--r);padding:12px 14px;cursor:pointer}
+.aibtn svg{grid-row:1/3}
+.aibtn span{font-weight:700;font-size:15px}
+.aibtn small{color:var(--muted);font-size:13px}
+.aip{background:var(--surface);border:1px solid var(--herb);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:12px}
+.aih{display:flex;align-items:center;gap:8px;color:var(--herb)}
+.aih b{flex:1;color:var(--ink);font-size:16px}
+.aih .x{border:0;background:none;font-size:24px;line-height:1;color:var(--muted);cursor:pointer;padding:0 4px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer}
+.chip:disabled{opacity:.5;cursor:default}
+.aif{display:flex;flex-direction:column;gap:8px}
+.aif textarea{font:inherit;font-size:15px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--bg);color:var(--ink);resize:vertical;width:100%}
+.aif .btn{align-self:flex-end}
+.aire{margin:0;font-size:15px}
+.aich{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.aich li{display:flex;flex-direction:column;gap:2px;background:var(--bg);border-radius:10px;padding:8px 10px;font-size:14px}
+.aich span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+.aich s{color:var(--muted)}
+.aich em{font-style:normal;font-size:11px;font-weight:700;color:var(--herb);background:var(--herb-soft);border-radius:999px;padding:1px 7px;vertical-align:2px}
+.aiact{display:flex;flex-wrap:wrap;gap:8px}
+.aierr{margin:0;color:var(--tomato);font-size:14px}
+.notice.chg{background:var(--herb-soft);align-items:center}
+.notice.chg svg{color:var(--herb)}
+.notice.chg span{flex:1}
+.lnk{border:0;background:none;color:var(--herb);font-weight:700;font-size:14px;cursor:pointer;padding:0;text-decoration:underline}
 </style>
 
 </head>
@@ -287,13 +316,15 @@ function connect(){
   try{if(!firebase.apps.length)firebase.initializeApp(cfg);famRef=firebase.firestore().collection('families').doc(fam)}catch(e){return}
   DB={collection:function(c){return famRef.collection(c)},doc:function(p){var a=p.split('/');return famRef.collection(a[0]).doc(a[1])}};
   var db=DB;SYNC='shared';SYNCMSG='';rerender();
-  var got=0;var t=setTimeout(function(){if(got<3){SYNC='err';SYNCMSG='Общий список пока недоступен. Проверьте интернет.';rerender()}},10000);
-  function ok(snap){if(!snap.metadata.fromCache){got++;if(got>=3)clearTimeout(t)}if(SYNC!=='err'||got>=3){SYNC='shared';SYNCMSG=''}}
+  var got=0;var t=setTimeout(function(){if(got<5){SYNC='err';SYNCMSG='Общий список пока недоступен. Проверьте интернет.';rerender()}},10000);
+  function ok(snap){if(!snap.metadata.fromCache){got++;if(got>=5)clearTimeout(t)}if(SYNC!=='err'||got>=5){SYNC='shared';SYNCMSG=''}}
   function fail(e){clearTimeout(t);dbErr(e)}
   var opt={includeMetadataChanges:true};
   db.collection('have').onSnapshot(opt,function(s){var h={};s.docs.forEach(function(d){h[d.id]=1});DATA.have=h;ok(s);saveLocal();rerender()},fail);
   db.collection('fridge').onSnapshot(opt,function(s){DATA.fridge=s.docs.map(function(d){return Object.assign({id:d.id},d.data())}).sort(function(a,b){return (a.at||0)-(b.at||0)});ok(s);saveLocal();rerender()},fail);
   db.collection('ratings').onSnapshot(opt,function(s){var r={};s.docs.forEach(function(d){r[d.id]=d.data()});DATA.ratings=r;ok(s);saveLocal();rerender()},fail);
+  db.collection('recipes').onSnapshot(opt,function(s){var a={};s.docs.forEach(function(d){try{a[d.id]=JSON.parse(d.data().json)}catch(e){}});AIR=a;loadAi();ensureRefs();ok(s);store.set('air',AIR);rerender()},fail);
+  db.collection('plan').onSnapshot(opt,function(s){var a={};s.docs.forEach(function(d){try{a[d.id]=JSON.parse(d.data().meals)}catch(e){}});PLAN=a;ensureRefs();ok(s);store.set('plan',PLAN);rerender()},fail);
 }
 var rerender=function(){};
 
@@ -346,17 +377,19 @@ function renderDays(){
   $('days').innerHTML=DAYS.map(function(x,i){return '<button type="button" class="day" aria-pressed="'+(i===cur)+'" data-i="'+i+'" aria-label="'+esc(x.label)+'"><b>'+x.w+'</b><span>'+x.n+'</span>'+(x.d===TODAY?'<i class="today" title="Сегодня"></i>':'')+'</button>'}).join('');
 }
 function renderMenu(){
-  var x=DAYS[cur];var h='<div class="dayhead"><h2>'+esc(x.label)+'</h2><p>'+(x.d===TODAY?'Сегодня':'Нажмите на блюдо, чтобы открыть рецепт')+'</p></div>';
+  var x=dayView(cur);var aiFocus=document.activeElement&&document.activeElement.id==='ai-q';var h='<div class="dayhead"><h2>'+esc(x.label)+'</h2><p>'+(x.d===TODAY?'Сегодня':'Нажмите на блюдо, чтобы открыть рецепт')+'</p></div>';
   if(x.note)h+='<div class="notice">'+info+'<span>'+esc(x.note)+'</span></div>';
-  x.meals.forEach(function(m){var r=R[m[2]];
+  if(x.changed)h+='<div class="notice chg">'+spark+'<span>Меню этого дня изменено.</span><button type="button" class="lnk" data-reset="'+x.d+'">Вернуть как было</button></div>';
+  if(x.d>=TODAY)h+=aiPanel();
+  x.meals.forEach(function(m){var r=R[m[2]];if(!r)return;
     h+='<button type="button" class="meal" data-r="'+m[2]+'"><div class="row"><span class="tag">'+m[0]+'</span><span class="pill '+(m[1]==='her'?'her':'both')+'">'+WHO[m[1]]+'</span></div>'+
       '<h3>'+esc(r.title)+(r.leftover?' <span style="font-weight:500;color:var(--muted)">— вчерашний ужин</span>':'')+'</h3>'+
       '<div class="meta"><span>'+clock.replace('width="15"','width="13"').replace('height="15"','height="13"')+' '+esc(r.time)+'</span>'+
-      (PRIV?((r.kcal[0]?'<span class="h">ему <i>≈ '+r.kcal[0]+'</i> ккал</span>':'')+'<span class="s">ей <i>≈ '+r.kcal[1]+'</i> ккал</span>'):'')+ratingText(m[2])+'</div>'+
+      (PRIV?((r.kcal[0]?'<span class="h">ему <i>≈ '+r.kcal[0]+'</i> ккал</span>':'')+(r.kcal[1]?'<span class="s">ей <i>≈ '+r.kcal[1]+'</i> ккал</span>':'')):'')+ratingText(m[2])+'</div>'+
       (r.salad&&!r.leftover?'<p>+ '+esc(r.salad.t.toLowerCase())+'</p>':'')+
       '<div class="go"><span>'+(r.leftover?'Как собрать и разогреть':'Открыть рецепт')+'</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div></button>';
   });
-  $('v-menu').innerHTML=h;
+  $('v-menu').innerHTML=h;if(aiFocus){var tq=$('ai-q');if(tq&&!tq.disabled){tq.focus();tq.selectionStart=tq.selectionEnd=tq.value.length}}
 }
 
 /* ---------- Рецепт ---------- */
@@ -366,7 +399,7 @@ function openRecipe(id){
   var h='<div class="rh"><span class="tag">'+esc(r.serves)+'</span><h2 id="r-title">'+esc(r.title)+'</h2>'+
    '<div class="facts"><div class="fact"><b>Время</b><span>'+esc(r.time.split(',')[0])+'</span></div>'+
    (PRIV?((r.kcal[0]?'<div class="fact h"><b>Ему</b><span>≈ '+r.kcal[0]+'</span></div>':'')+
-   '<div class="fact s"><b>Ей</b><span>≈ '+r.kcal[1]+'</span></div>'):'')+'</div>'+
+   (r.kcal[1]?'<div class="fact s"><b>Ей</b><span>≈ '+r.kcal[1]+'</span></div>':'')):'')+'</div>'+
    (PRIV?'<p class="legend">Калорийность блюда на одну порцию, без салата.</p>':'')+'</div>';
   if(r.ing){
     h+='<section class="blk"><h3>Ингредиенты</h3><div class="tbl"><table><thead><tr><th>Продукт</th><th>'+(PRIV?'Всего':'Количество')+'</th>'+(PRIV&&(r.cols||r.ing.some(function(a){return a[2]}))?'<th class="h">Ему</th><th class="s">Ей</th>':'')+'</tr></thead><tbody>'+
@@ -428,7 +461,7 @@ function syncLine(){
   if(SYNC==='shared')return '<p class="sync on"><i></i>Общий список: изменения видны на обоих телефонах</p>';
   if(SYNC==='err')return '<p class="sync err"><i></i>'+esc(SYNCMSG)+'</p>';
   return '<p class="sync"><i></i>Отметки сохраняются на этом телефоне</p>'}
-function counts(){var buy=0,home=DATA.fridge.length;TRIPS.forEach(function(t){t.groups.forEach(function(g,gi){g[1].forEach(function(_,j){if(DATA.have[itemId(t,gi,j)])home++;else buy++})})});return {buy:buy,home:home}}
+function counts(){var buy=0,home=DATA.fridge.length;allTrips().forEach(function(t){t.groups.forEach(function(g,gi){g[1].forEach(function(_,j){if(DATA.have[itemId(t,gi,j)])home++;else buy++})})});return {buy:buy,home:home}}
 function renderShop(){
   var fn=$('f-name'),fq=$('f-qty');var keep={n:fn?fn.value:'',q:fq?fq.value:'',f:document.activeElement&&document.activeElement.id};
   var c=counts();
@@ -436,7 +469,7 @@ function renderShop(){
    '<div class="seg" role="group" aria-label="Список"><button type="button" data-seg="buy" aria-pressed="'+(shopSeg==='buy')+'">Купить · '+c.buy+'</button><button type="button" data-seg="home" aria-pressed="'+(shopSeg==='home')+'">Дома · '+c.home+'</button></div>';
   if(shopSeg==='buy'){
     h+='<p class="legend" style="margin:0 2px">Отметьте продукт, когда купили или если он уже есть дома. Он переедет во вкладку «Дома».</p>';
-    TRIPS.forEach(function(t){var all=0,got=0,body='';
+    allTrips().forEach(function(t){var all=0,got=0,body='';
       t.groups.forEach(function(g,gi){var rows='';g[1].forEach(function(it,j){all++;var id=itemId(t,gi,j);if(DATA.have[id]){got++;return}
           rows+='<label class="item" for="c-'+id+'"><input type="checkbox" id="c-'+id+'" data-id="'+id+'"><span>'+esc(it)+'</span></label>'});
         if(rows)body+='<div class="grp"><h4>'+esc(g[0])+'</h4>'+rows+'</div>'});
@@ -448,7 +481,7 @@ function renderShop(){
       '<form class="addrow" id="addf"><input id="f-name" placeholder="Например, сметана" aria-label="Продукт" autocomplete="off" maxlength="80"><input id="f-qty" placeholder="Сколько" aria-label="Количество" autocomplete="off" maxlength="30"><button class="btn pri" type="submit">Добавить</button></form>'+
       (DATA.fridge.length?'<div class="grp">'+DATA.fridge.map(function(x){return '<div class="hrow"><span>'+esc(x.name||'')+(x.qty?'<small>'+esc(x.qty)+'</small>':'')+'</span><button type="button" class="out" data-delf="'+esc(x.id)+'">Закончилось</button></div>'}).join('')+'</div>':'<p class="empty">Добавьте то, что уже лежит дома, чтобы не купить лишнего.</p>')+'</div>';
     var body='';
-    TRIPS.forEach(function(t){t.groups.forEach(function(g,gi){var rows='';g[1].forEach(function(it,j){var id=itemId(t,gi,j);if(!DATA.have[id])return;
+    allTrips().forEach(function(t){t.groups.forEach(function(g,gi){var rows='';g[1].forEach(function(it,j){var id=itemId(t,gi,j);if(!DATA.have[id])return;
         rows+='<div class="hrow"><span>'+esc(it)+'</span><button type="button" class="out" data-unhave="'+id+'">Закончилось</button></div>'});
       if(rows)body+='<div class="grp"><h4>'+esc(g[0])+(t.id==='pan'?' · кладовая':'')+'</h4>'+rows+'</div>'})});
     h+='<div class="trip"><div class="th"><h3>Из списка покупок</h3><p>«Закончилось» вернёт продукт во вкладку «Купить»</p></div>'+(body||'<p class="empty">Пока ничего не отмечено как купленное.</p>')+'</div>';
@@ -464,7 +497,7 @@ $('v-shop').addEventListener('click',function(e){
   var u=e.target.closest('[data-unhave]');if(u){API.setHave(u.dataset.unhave,false);return}
   var d=e.target.closest('[data-delf]');if(d){API.delFridge(d.dataset.delf);return}
   var c=e.target.closest('[data-copy]');
-  if(c){var t=TRIPS.filter(function(x){return x.id===c.dataset.copy})[0];
+  if(c){var t=allTrips().filter(function(x){return x.id===c.dataset.copy})[0];
     var txt=t.title+'\n'+t.groups.map(function(g,gi){var left=g[1].filter(function(_,j){return !DATA.have[itemId(t,gi,j)]});return left.length?('\n'+g[0]+':\n'+left.map(function(x){return '• '+x}).join('\n')):''}).join('');
     var done=function(ok){c.textContent=ok?'Скопировано':'Выделено, скопируйте вручную';setTimeout(function(){c.textContent='Скопировать список'},2000)};
     var out=document.querySelector('[data-out="'+t.id+'"]');var ta=$('out-'+t.id);ta.value=txt;
@@ -492,6 +525,155 @@ $('v-norms').addEventListener('click',function(e){var b=e.target.closest('#exp')
   var done=function(ok){b.textContent=ok?'Скопировано':'Выделено, скопируйте вручную';setTimeout(function(){b.textContent='Скопировать оценки'},2000)};
   var manual=function(){ta.hidden=false;ta.style.height='160px';ta.select();done(false)};
   try{navigator.clipboard.writeText(txt).then(function(){done(true)},manual)}catch(err){manual()}});
+/* ---------- ИИ: замена и перестановка блюд ---------- */
+var PLAN=store.get('plan',{}),AIR=store.get('air',{});
+var AIST={open:false,busy:false,q:'',res:null,err:''};
+function mealsOf(i){var x=DAYS[i];return PLAN[x.d]||x.meals}
+function dayView(i){var x=DAYS[i];return Object.assign({},x,{meals:mealsOf(i),changed:!!PLAN[x.d]})}
+function mkLeftover(srcId){var id='l-'+srcId;if(R[id]||!R[srcId])return;var src=R[srcId];
+  R[id]={src:srcId,short:src.short,title:src.title,leftover:true,time:'5 мин',serves:'Её обед из вчерашнего ужина',kcal:[null,(src.kcal||[])[1]||null],
+   steps:[['Вечером','Сразу после готовки отложите одну порцию в контейнер. Остудите её 20–30 минут с открытой крышкой и уберите в холодильник. Хранится до 3 дней.'],
+          ['Утром','Свежие овощи, зелень и соусы положите в отдельные баночки: их не греют.'],
+          ['Разогрев','Грейте 2–3 минуты на 800 Вт, на середине перемешайте.']]}}
+function addAiRecipe(id,o){
+  R[id]={ai:true,short:String(o.title||'').toLowerCase(),title:String(o.title||'Новое блюдо'),time:o.time||'',serves:o.serves||'',kcal:[null,null],cols:false,
+   ing:(o.ingredients||[]).map(function(a){return [String(a.name||''),String(a.qty||''),'','']}),
+   steps:(o.steps||[]).map(function(s){var t=Math.round((+s.timer_min||0)*60);return t>0?[String(s.title||''),String(s.text||''),t]:[String(s.title||''),String(s.text||'')]}),
+   lunchbox:o.lunchbox||'',buy:o.buy||[],
+   salad:o.salad&&o.salad.title?{t:o.salad.title,k:'',i:o.salad.items||[],s:o.salad.how||''}:null};
+  delete R['l-'+id];mkLeftover(id)}
+function loadAi(){Object.keys(AIR).forEach(function(id){try{addAiRecipe(id,AIR[id])}catch(e){}})}
+function ensureRefs(){DAYS.forEach(function(x,i){mealsOf(i).forEach(function(m){if(!R[m[2]]&&/^l-/.test(m[2]))mkLeftover(m[2].slice(2))})})}
+function aiTrips(){var g=[];DAYS.forEach(function(x,i){if(x.d<TODAY)return;mealsOf(i).forEach(function(m){var r=R[m[2]];
+    if(r&&r.ai&&r.buy&&r.buy.length)g.push([x.w+' '+x.n+' · '+r.title,r.buy.map(String)])})});
+  return g.length?[{id:'ai',title:'Докупить для новых блюд',sub:'Для блюд, которые поменял ИИ',groups:g}]:[]}
+function allTrips(){return aiTrips().concat(TRIPS)}
+
+/* Применение изменений: перестановки и новые блюда, потом обеды-ланчбоксы перепривязываются к ужину накануне */
+function mIdx(A,meal){for(var k=0;k<A.length;k++)if(A[k][0]===meal)return k;return -1}
+function curPlan(){var plan={};DAYS.forEach(function(x,i){plan[x.d]=mealsOf(i).map(function(m){return m.slice()})});return plan}
+function finishPlan(plan,recipes){
+  DAYS.forEach(function(x,i){if(!i)return;x.meals.forEach(function(m,k){
+    if(m[1]!=='her'||!/^l-/.test(m[2]))return;var prev=plan[DAYS[i-1].d];var dn=prev[mIdx(prev,'Ужин')];
+    if(dn&&plan[x.d][k]){var nid='l-'+(R[dn[2]]&&R[dn[2]].src?R[dn[2]].src:dn[2]);mkLeftover(nid.slice(2));plan[x.d][k][2]=nid}})});
+  var diff={},lines=[];
+  DAYS.forEach(function(x,i){var now=mealsOf(i),nw=plan[x.d];if(JSON.stringify(now)===JSON.stringify(nw))return;
+    diff[x.d]=JSON.stringify(nw)===JSON.stringify(x.meals)?null:nw;
+    nw.forEach(function(m,k){if(!now[k]||now[k][2]===m[2])return;var a=R[now[k][2]],b=R[m[2]];
+      lines.push({d:x.w+' '+x.n+', '+m[0].toLowerCase(),from:a?a.title:'—',to:b?b.title:'—',ai:!!(b&&b.ai)})})});
+  return {plan:diff,recipes:recipes||{},lines:lines}}
+function planFromOps(ops){
+  var plan=curPlan(),recipes={};
+  (ops||[]).forEach(function(o){var A=plan[o.day];if(!A||o.day<TODAY)return;var ia=mIdx(A,o.meal);if(ia<0)return;
+    if(o.op==='swap'){var B=plan[o.day2];if(!B||o.day2<TODAY)return;var ib=mIdx(B,o.meal2||o.meal);if(ib<0)return;
+      var t=A[ia][2];A[ia][2]=B[ib][2];B[ib][2]=t}
+    else if(o.op==='replace'&&o.recipe&&o.recipe.title&&o.recipe.steps&&o.recipe.steps.length){
+      var id='ai'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);recipes[id]=o.recipe;addAiRecipe(id,o.recipe);A[ia][2]=id}});
+  return finishPlan(plan,recipes)}
+/* Вернуть день как было. Если его блюдо переставлено в другой день, тот день тоже возвращается, чтобы блюда не задвоились. */
+function resetDay(d){var plan=curPlan(),todo=[d],done={};
+  while(todo.length){var e=todo.pop();if(done[e])continue;done[e]=1;var base=DAYS.filter(function(x){return x.d===e})[0];if(!base)continue;
+    plan[e]=base.meals.map(function(m){return m.slice()});
+    var ids=base.meals.filter(function(m){return !/^l-/.test(m[2])}).map(function(m){return m[2]});
+    DAYS.forEach(function(x){if(x.d===e||!PLAN[x.d])return;
+      if(plan[x.d].some(function(m){return ids.indexOf(m[2])>-1}))todo.push(x.d)})}
+  commitPlan(finishPlan(plan))}
+function commitPlan(p){
+  Object.keys(p.recipes).forEach(function(id){AIR[id]=p.recipes[id]});
+  Object.keys(p.plan).forEach(function(d){if(p.plan[d])PLAN[d]=p.plan[d];else delete PLAN[d]});
+  store.set('plan',PLAN);store.set('air',AIR);rerender();
+  if(!DB)return;
+  Object.keys(p.recipes).forEach(function(id){var ref=DB.doc('recipes/'+id);serial('recipes/'+id,function(){return ref.set({json:JSON.stringify(p.recipes[id]),at:Date.now()})})});
+  Object.keys(p.plan).forEach(function(d){var ref=DB.doc('plan/'+d),v=p.plan[d];serial('plan/'+d,function(){return v?ref.set({meals:JSON.stringify(v),at:Date.now()}):ref.delete()})});
+}
+/* Запрос к Gemini через Firebase AI Logic */
+var AI_MODELS=window.FB_AI_MODELS||['gemini-2.5-flash','gemini-flash-latest','gemini-2.5-flash-lite'];
+var STR={type:'STRING'};
+var AI_SCHEMA={type:'OBJECT',properties:{
+  reply:STR,
+  ops:{type:'ARRAY',items:{type:'OBJECT',properties:{
+    op:{type:'STRING',enum:['swap','replace']},day:STR,meal:{type:'STRING',enum:['Обед','Ужин']},day2:STR,meal2:{type:'STRING',enum:['Обед','Ужин']},
+    recipe:{type:'OBJECT',properties:{title:STR,time:STR,serves:STR,
+      ingredients:{type:'ARRAY',items:{type:'OBJECT',properties:{name:STR,qty:STR},required:['name','qty']}},
+      steps:{type:'ARRAY',items:{type:'OBJECT',properties:{title:STR,text:STR,timer_min:{type:'NUMBER'}},required:['title','text']}},
+      salad:{type:'OBJECT',properties:{title:STR,items:{type:'ARRAY',items:STR},how:STR}},
+      lunchbox:STR,buy:{type:'ARRAY',items:STR}},required:['title','time','serves','ingredients','steps','buy']}},
+    required:['op','day','meal']}}},required:['reply','ops']};
+var AI_SYS=['Ты помощник по домашнему меню на неделю для пары (он и она). Отвечай только по-русски.',
+ 'Пользователь просит поменять меню. Верни JSON: reply — 1–3 коротких предложения, что ты предлагаешь и почему; ops — список изменений.',
+ 'Изменения бывают двух видов:',
+ '• swap — поменять местами блюда двух дней (day и day2, приём пищи meal и meal2). Используй, когда просят переставить дни или когда подходящее блюдо уже есть в меню на другой день.',
+ '• replace — заменить блюдо дня (day, meal) новым рецептом recipe.',
+ 'Правила:',
+ '— Менять можно только сегодняшний и будущие дни. Прошедшие не трогай.',
+ '— Меняй как можно меньше: только то, о чём просят.',
+ '— Обеды «ей, в ланчбокс» — это остатки ужина накануне, они пересчитываются сами. Не меняй их, меняй ужины.',
+ '— Рыбу и морепродукты не предлагай.',
+ '— В будни (пн–пт) блюдо должно готовиться за 30–40 минут, в выходные можно дольше.',
+ '— Если на следующий день в меню есть её обед в ланчбокс, новый ужин готовится на 3 порции (ужин на двоих и её обед на завтра) и должен хорошо переносить разогрев в микроволновке. Тогда заполни lunchbox: как хранить и собрать её порцию.',
+ '— Новый рецепт сбалансированный: белок, гарнир или крупа, овощи. Обязательно добавь свежие овощи или салат в salad.',
+ '— Учитывай продукты, которые есть дома, и оценки блюд. Предпочитай то, что уже есть дома.',
+ '— ingredients — количества на всё блюдо целиком, в граммах, штуках или ложках. steps — 4–8 понятных шагов, у шагов с ожиданием (варка, запекание, тушение) укажи timer_min.',
+ '— buy — чего, скорее всего, нет дома и нужно докупить для нового блюда, с количеством. Пустой список, если всё есть.',
+ '— Не пиши про калории, нормы и кто сколько ест. Не обращайся на «вы», пиши нейтрально.',
+ '— Если просьба непонятна или не про меню, верни пустой ops и коротко объясни в reply.'].join('\n');
+function aiContext(q){
+  var L=['Сегодня: '+TODAY+'. Пользователь сейчас смотрит день '+DAYS[cur].d+' ('+DAYS[cur].label+').','','Меню:'];
+  DAYS.forEach(function(x,i){L.push(x.d+' ('+x.label+')'+(x.d<TODAY?' — прошёл':'')+':');
+    mealsOf(i).forEach(function(m){var r=R[m[2]];L.push('  '+m[0]+' ('+WHO[m[1]]+'): '+(r?r.title+(r.leftover?' — остатки вчерашнего ужина':''):'—'))})});
+  var home=DATA.fridge.map(function(f){return f.name+(f.qty?' ('+f.qty+')':'')});
+  TRIPS.forEach(function(t){t.groups.forEach(function(g,gi){g[1].forEach(function(it,j){if(DATA.have[itemId(t,gi,j)])home.push(it)})})});
+  L.push('','Есть дома: '+(home.length?home.join('; '):'не отмечено'));
+  var rt=Object.keys(DATA.ratings).filter(function(k){return R[k]}).map(function(k){var r=DATA.ratings[k];
+    return R[k].title+': он '+(r.him||'—')+', она '+(r.her||'—')+(r.note?' («'+r.note+'»)':'')});
+  L.push('Оценки: '+(rt.length?rt.join('; '):'пока нет'));
+  L.push('','Просьба: '+q);
+  return L.join('\n')}
+function aiCall(q){var cfg=window.FB_CONFIG;if(!cfg||!window.fetch)return Promise.reject({msg:'ИИ работает только на сайте, открытом по ссылке.'});
+  var body=JSON.stringify({systemInstruction:{parts:[{text:AI_SYS}]},contents:[{role:'user',parts:[{text:aiContext(q)}]}],
+    generationConfig:{responseMimeType:'application/json',responseSchema:AI_SCHEMA,temperature:0.6}});
+  function tryM(i){return fetch('https://firebasevertexai.googleapis.com/v1beta/projects/'+cfg.projectId+'/models/'+AI_MODELS[i]+':generateContent',
+      {method:'POST',headers:{'content-type':'application/json','x-goog-api-key':cfg.apiKey},body:body})
+    .then(function(r){return r.json().catch(function(){return {}}).then(function(j){
+      if(r.ok)return j;var m=(j.error&&j.error.message)||'';
+      if((r.status===404||/not found|not supported/i.test(m))&&i+1<AI_MODELS.length)return tryM(i+1);
+      if(r.status===403&&/not been used|disabled/i.test(m))throw {msg:'ИИ ещё не включён в Firebase (раздел AI Logic). Если только что включили, подождите пару минут.'};
+      if(r.status===429)throw {msg:'Бесплатный лимит запросов к ИИ пока исчерпан. Попробуйте через минуту или завтра.'};
+      throw {msg:'ИИ не ответил ('+r.status+'). Попробуйте ещё раз.'}})})}
+  return tryM(0).then(function(j){var c=((j.candidates||[])[0]||{}).content;var t=c&&c.parts?c.parts.map(function(p){return p.text||''}).join(''):'';
+    try{return JSON.parse(t)}catch(e){throw {msg:'ИИ ответил непонятно. Попробуйте переформулировать.'}}})}
+function aiAsk(q,extra){q=(q||'').trim();if(!q||AIST.busy)return;AIST.q=q;AIST.busy=true;AIST.err='';AIST.res=null;renderMenu();
+  aiCall(q+(extra||'')).then(function(o){AIST.busy=false;var p=planFromOps(o.ops);AIST.res={reply:String(o.reply||''),p:p};renderMenu()})
+   .catch(function(e){AIST.busy=false;AIST.err=(e&&e.msg)||'Нет связи с ИИ. Проверьте интернет.';renderMenu()})}
+var CHIPS=['Сегодня не хочу мяса','Поменяй сегодня и завтра','Хочу что-то попроще','Приготовить из того, что есть дома'];
+function aiPanel(){
+  if(!AIST.open)return '<button type="button" class="aibtn" data-ai="open">'+spark+'<span>Поменять меню с ИИ</span><small>например, «сегодня без мяса»</small></button>';
+  var h='<div class="aip"><div class="aih">'+spark+'<b>Что поменять?</b><button type="button" class="x" data-ai="close" aria-label="Закрыть">×</button></div>';
+  if(AIST.res){var r=AIST.res;h+='<p class="aire">'+esc(r.reply)+'</p>';
+    if(r.p.lines.length){h+='<ul class="aich">'+r.p.lines.map(function(l){return '<li><span>'+esc(l.d)+'</span><s>'+esc(l.from)+'</s><b>'+esc(l.to)+(l.ai?' <em>новое</em>':'')+'</b></li>'}).join('')+'</ul>'+
+      '<div class="aiact"><button type="button" class="btn pri" data-ai="apply">Применить</button><button type="button" class="btn" data-ai="again">Другой вариант</button><button type="button" class="btn" data-ai="cancel">Отмена</button></div>'}
+    else h+='<div class="aiact"><button type="button" class="btn" data-ai="cancel">Понятно</button></div>';
+    return h+'</div>'}
+  h+='<div class="chips">'+CHIPS.map(function(c){return '<button type="button" class="chip" data-chip="'+esc(c)+'"'+(AIST.busy?' disabled':'')+'>'+esc(c)+'</button>'}).join('')+'</div>'+
+    '<form class="aif" data-ai="form"><textarea id="ai-q" rows="2" maxlength="300" placeholder="Своими словами: «не хочу чили, переставь на субботу»"'+(AIST.busy?' disabled':'')+'>'+esc(AIST.q)+'</textarea>'+
+    '<button type="submit" class="btn pri"'+(AIST.busy?' disabled':'')+'>'+(AIST.busy?'Думаю…':'Спросить')+'</button></form>';
+  if(AIST.busy)h+='<p class="legend">ИИ подбирает варианты, это занимает 10–30 секунд.</p>';
+  if(AIST.err)h+='<p class="aierr">'+esc(AIST.err)+'</p>';
+  return h+'</div>'}
+var spark='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L19 9.7l-4.9 1.8L12 16.4l-1.8-4.9L5.3 9.7l4.9-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>';
+$('v-menu').addEventListener('click',function(e){
+  var c=e.target.closest('[data-chip]');if(c){aiAsk(c.dataset.chip);return}
+  var rs=e.target.closest('[data-reset]');if(rs){resetDay(rs.dataset.reset);return}
+  var a=e.target.closest('[data-ai]');if(!a||a.tagName==='FORM')return;var k=a.dataset.ai;
+  if(k==='open'){AIST.open=true;renderMenu();var t=$('ai-q');if(t)t.focus()}
+  else if(k==='close'){AIST={open:false,busy:false,q:'',res:null,err:''};renderMenu()}
+  else if(k==='apply'){commitPlan(AIST.res.p);AIST={open:false,busy:false,q:'',res:null,err:''};renderMenu()}
+  else if(k==='again'){var q=AIST.q;AIST.res=null;aiAsk(q,' (предложи другой вариант, не такой как в прошлый раз)')}
+  else if(k==='cancel'){AIST.res=null;renderMenu()}});
+$('v-menu').addEventListener('submit',function(e){e.preventDefault();var t=$('ai-q');if(t)aiAsk(t.value)});
+$('v-menu').addEventListener('input',function(e){if(e.target.id==='ai-q')AIST.q=e.target.value});
+loadAi();ensureRefs();
+
 /* ---------- Навигация ---------- */
 var tab=store.get('tab','menu');
 function showTab(t){tab=t;store.set('tab',t);['menu','shop','norms'].forEach(function(x){$('v-'+x).hidden=x!==t});

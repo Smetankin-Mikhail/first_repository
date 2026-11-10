@@ -4,9 +4,13 @@ service cloud.firestore {
     // Данные семьи лежат в families/<ключ из ссылки>/...
     // Список всех семей получить нельзя: без ключа из ссылки данные не найти.
     match /families/{fam}/{col}/{doc} {
-      allow get, list, delete: if fam.size() >= 24 && col in ['have', 'fridge', 'ratings'];
-      allow create, update: if fam.size() >= 24 && col in ['have', 'fridge', 'ratings']
-        && request.resource.data.size() <= 6;
+      function allowed() {
+        return fam.size() >= 24 && col in ['have', 'fridge', 'ratings', 'plan', 'recipes'];
+      }
+      allow get, list, delete: if allowed();
+      allow create, update: if allowed()
+        && request.resource.data.size() <= 6
+        && (!('json' in request.resource.data) || request.resource.data.json.size() < 60000);
     }
   }
 }
