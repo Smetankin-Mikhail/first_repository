@@ -260,6 +260,17 @@ body.gated{overflow:hidden}
 .gwarn{background:var(--tomato-soft);color:var(--ink)!important;border-radius:12px;padding:10px 12px;font-size:14px;text-align:left}
 .acct{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
 .acct p{margin:0}
+.mbar{display:flex;gap:8px;margin-top:-6px}
+.mb{flex:1;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 10px;font-size:13px;font-weight:600;color:var(--herb);cursor:pointer}
+.pick{background:var(--surface);border:1px solid var(--herb);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px}
+.plist{display:flex;flex-direction:column;gap:8px}
+.pitem{display:flex;flex-direction:column;gap:4px;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;cursor:default;width:100%;font:inherit;color:inherit}
+button.pitem{cursor:pointer}
+.pitem span{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.pitem .aiact{margin-top:4px}
+.miss{color:var(--tomato)}
+.have{color:var(--herb);font-weight:700}
+.chip.on{background:var(--herb);border-color:var(--herb);color:var(--surface)}
 </style>
 
 </head>
@@ -470,7 +481,7 @@ function renderMenu(){
       (r.salad&&!r.leftover?'<p>+ '+esc(r.salad.t.toLowerCase())+'</p>':'')+
       '<div class="go"><span>'+(r.leftover?'Как собрать и разогреть':'Открыть рецепт')+'</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div></button>';
   });
-  $('v-menu').innerHTML=h;if(aiFocus){var tq=$('ai-q');if(tq&&!tq.disabled){tq.focus();tq.selectionStart=tq.selectionEnd=tq.value.length}}
+  $('v-menu').innerHTML=h;decorateMeals(x);if(aiFocus){var tq=$('ai-q');if(tq&&!tq.disabled){tq.focus();tq.selectionStart=tq.selectionEnd=tq.value.length}}
 }
 
 /* ---------- Рецепт ---------- */
@@ -593,7 +604,7 @@ function rankHtml(){
 
 /* ---------- Нормы ---------- */
 function exportText(){var lines=['Оценки блюд, неделя 10–15 ноября'];
-  Object.keys(R).filter(function(k){return !R[k].leftover}).forEach(function(k){var r=DATA.ratings[k]||{};
+  Object.keys(R).filter(function(k){return !R[k].leftover&&(!(R[k].book||R[k].ai)||DATA.ratings[k]||planIds()[k])}).forEach(function(k){var r=DATA.ratings[k]||{};
     lines.push('• '+R[k].title+': он '+(r.him||'—')+', она '+(r.her||'—')+(r.note?' — «'+r.note+'»':''))});
   return lines.join('\n')}
 function exportHtml(){return '<div class="prose"><h3>Оценки для Claude</h3><p>Скопируйте и вставьте в чат с Claude, чтобы он учёл их в меню на следующую неделю.</p>'+
@@ -653,6 +664,8 @@ function planFromOps(ops){
     if(o.op==='swap'){var B=plan[o.day2];if(!B||o.day2<TODAY)return;var ib=mIdx(B,o.meal2||o.meal);if(ib<0)return;
       var t=A[ia][2];A[ia][2]=B[ib][2];B[ib][2]=t;
       if(o.buy&&o.buy.length){var d0=o.day<o.day2?o.day:o.day2;extra[d0]=(extra[d0]||EXTRA[d0]||[]).concat(o.buy.map(String))}}
+    else if(o.op==='use'&&R[o.recipeId]){A[ia][2]=o.recipeId;
+      if(o.buy&&o.buy.length)extra[o.day]=(extra[o.day]||EXTRA[o.day]||[]).concat(o.buy.map(String))}
     else if(o.op==='replace'&&o.recipe&&o.recipe.title&&o.recipe.steps&&o.recipe.steps.length){
       var id='ai'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);recipes[id]=o.recipe;addAiRecipe(id,o.recipe);A[ia][2]=id}});
   var p=finishPlan(plan,recipes);p.extra=extra;
@@ -704,7 +717,7 @@ var AI_SYS=['Ты помощник по домашнему меню на нед�
  '— Менять можно только сегодняшний и будущие дни. Прошедшие не трогай.',
  '— Меняй как можно меньше: только то, о чём просят.',
  '— Обеды «ей, в ланчбокс» — это остатки ужина накануне, они пересчитываются сами. Не меняй их, меняй ужины.',
- '— Рыбу и морепродукты не предлагай никогда.',
+ '— Рыбу и морепродукты можно предлагать, но не чаще 1–2 раз в неделю (смотри, сколько рыбы уже в меню). Если просят «без рыбы» — не предлагай.',
  '— «Без мяса» значит без мяса И без птицы (курица, индейка тоже мясо), без фарша, колбасы, ветчины, бекона и мясного бульона. Можно яйца, молочное, сыр, бобовые, крупы, овощи, грибы.',
  '— «Сегодня», «завтра», «послезавтра» и дни недели переводи в даты по строке «Даты» в запросе. Если день не назван, имеется в виду день, который пользователь сейчас смотрит.',
  '— reply должен совпадать с ops: если ops — перестановка, так и напиши; про магазин пиши только если buy не пустой.',
@@ -760,7 +773,7 @@ function homeNames(){var h=DATA.fridge.map(function(f){return f.name});
 function stem(w){w=w.toLowerCase().replace(/ё/g,'е').replace(/[^а-яa-z]/g,'');return w.length>6?w.slice(0,5):w.length>4?w.slice(0,4):w.slice(0,3)}
 function words(x){return String(x).split(' — ')[0].split(/[\s,()%\d]+/).filter(function(w){return w.replace(/[^а-яёa-z]/gi,'').length>2}).slice(0,2).map(stem)}
 function atHome(item,home){var a=words(item);if(!a.length)return false;
-  return home.some(function(h){var b=words(h);return b.length&&a[0]===b[0]&&(a.length<2||b.length<2||a[1]===b[1])})}
+  return home.some(function(h){var b=words(h);return b.length&&((a[0]===b[0]&&(a.length<2||b.length<2||a[1]===b[1]))||(b.length===1&&a.indexOf(b[0])>-1))})}
 function dropHomeBuys(o){var home=homeNames();if(!home.length||!o||!o.ops)return o;var left=0;
   o.ops.forEach(function(op){if(op.buy)op.buy=op.buy.filter(function(x){return !atHome(x,home)});if(op.recipe&&op.recipe.buy)op.recipe.buy=op.recipe.buy.filter(function(x){return !atHome(x,home)});
     left+=(op.buy||[]).length+((op.recipe&&op.recipe.buy)||[]).length});
@@ -802,6 +815,145 @@ $('v-menu').addEventListener('click',function(e){
 $('v-menu').addEventListener('submit',function(e){e.preventDefault();var t=$('ai-q');if(t)aiAsk(t.value)});
 $('v-menu').addEventListener('input',function(e){if(e.target.id==='ai-q')AIST.q=e.target.value});
 loadAi();ensureRefs();
+
+/* ---------- Книга рецептов: замена блюд без ИИ ---------- */
+/* Формат: id, теги (veg/fish/bird/meat), минуты, заголовок, ингредиенты [название, количество], шаги [заголовок, текст, минуты таймера], салат [название, состав, как], ланчбокс */
+var BOOK=[
+ ['shakshuka','veg',25,'Шакшука с фетой и хлебом',
+  [['Яйца','6 шт.'],['Томаты в собственном соку','800 г'],['Болгарский перец','2 шт.'],['Лук','1 шт.'],['Фета','100 г'],['Чеснок','2 зубчика'],['Зира и копчёная паприка','по 1 ч. л.'],['Цельнозерновой хлеб','6 ломтиков'],['Оливковое масло','1 ст. л.']],
+  [['Овощи','Лук и перец нарежьте полосками, обжарьте на масле в широкой сковороде до мягкости, в конце добавьте чеснок и специи.',7],
+   ['Соус','Добавьте томаты, разомните их лопаткой, посолите и тушите без крышки, пока соус не загустеет.',10],
+   ['Яйца','Сделайте в соусе 6 углублений, разбейте в них яйца, посолите. Накройте крышкой и готовьте, пока белок не схватится.',6],
+   ['Подача','Раскрошите сверху фету. Подавайте прямо в сковороде с подсушенным хлебом.']],
+  ['Огурцы с зеленью','Огурцы 2 шт., укроп или петрушка, лимонный сок','Нарежьте и сбрызните соком.'],
+  'Для ланчбокса возьмите 2 яйца с соусом и доведите их до твёрдого желтка. Хлеб — отдельно.'],
+ ['buckwheat','veg',30,'Гречка с грибами, луком и яйцом',
+  [['Гречка','240 г'],['Шампиньоны','400 г'],['Лук','2 шт.'],['Морковь','1 шт.'],['Яйца','4 шт.'],['Сметана','150 г'],['Сливочное масло','20 г'],['Укроп','½ пучка']],
+  [['Гречка','Промойте гречку, залейте 480 мл кипятка, посолите и варите под крышкой на минимальном огне.',18],
+   ['Яйца','Сварите яйца вкрутую и остудите в холодной воде.',10],
+   ['Зажарка','Лук нарежьте полукольцами, морковь натрите. Обжарьте на масле 5 минут, добавьте нарезанные грибы и жарьте, пока не уйдёт жидкость.',12],
+   ['Соединить','Вмешайте зажарку в гречку, посолите и поперчите. Подавайте с половинками яиц, сметаной и укропом.']],
+  ['Квашеная капуста или огурцы','Квашеная капуста 300 г или свежие огурцы, растительное масло','Заправьте маслом.'],
+  'Гречку с грибами положите в контейнер, яйцо и сметану — отдельно.'],
+ ['chickpasta','veg',25,'Паста с нутом, томатами и шпинатом',
+  [['Паста (пенне, фузилли)','300 г'],['Нут консервированный','1 банка'],['Томаты в собственном соку','400 г'],['Шпинат (можно замороженный)','150 г'],['Чеснок','3 зубчика'],['Пармезан или твёрдый сыр','60 г'],['Оливковое масло','2 ст. л.'],['Сушёный орегано','1 ч. л.']],
+  [['Паста','Сварите пасту в подсоленной воде на минуту меньше, чем на пачке. Отлейте полстакана воды.',10],
+   ['Соус','Пока варится паста, обжарьте на масле чеснок 30 секунд, добавьте томаты, нут и орегано, тушите.',8],
+   ['Шпинат','Вмешайте шпинат и прогрейте, пока не опадёт. Посолите.',2],
+   ['Соединить','Смешайте пасту с соусом, добавьте немного воды из-под пасты. Посыпьте сыром.']],
+  ['Помидоры с базиликом','Помидоры 3 шт., базилик, оливковое масло','Нарежьте дольками и заправьте.'],
+  'Хорошо разогревается: добавьте ложку воды перед микроволновкой.'],
+ ['zucchinibake','veg',40,'Запеканка из кабачков с рисом и сыром',
+  [['Кабачки','2 шт. (~700 г)'],['Рис','150 г'],['Яйца','3 шт.'],['Твёрдый сыр','120 г'],['Сметана','150 г'],['Помидоры','2 шт.'],['Лук','1 шт.'],['Чеснок','2 зубчика']],
+  [['Рис','Сварите рис до полуготовности.',10],
+   ['Овощи','Кабачки натрите на крупной тёрке, посолите и через 5 минут отожмите. Лук мелко нарежьте.'],
+   ['Смешать','Духовка 190 °C. Смешайте кабачки, рис, лук, чеснок, яйца, половину сметаны и половину сыра, посолите. Выложите в форму, сверху — кружки помидоров и остальной сыр.'],
+   ['Запекание','Запекайте до золотистой корочки. Дайте постоять 10 минут, чтобы нарезалась ровно.',30]],
+  ['Морковь по-корейски или свежая','Морковь 2 шт., чеснок, лимон, масло','Натрите морковь, заправьте.'],
+  'Нарежьте порцию квадратом, сметану — в баночку.'],
+ ['salmon','fish',35,'Сёмга в духовке с картофелем и брокколи',
+  [['Филе сёмги или форели','600 г'],['Молодой картофель','800 г'],['Брокколи','400 г'],['Лимон','1 шт.'],['Оливковое масло','2 ст. л.'],['Сушёный укроп или тимьян','1 ч. л.']],
+  [['Картофель','Духовка 210 °C. Разрежьте картофель на половинки, смешайте с маслом и солью, выложите на противень.',15],
+   ['Рыба и брокколи','Филе нарежьте на 3 порции, посолите, сбрызните лимоном. Добавьте на противень рыбу и соцветия брокколи.'],
+   ['Запекание','Запекайте, пока рыба не начнёт слоиться вилкой.',15],
+   ['Подача','Полейте соком лимона и посыпьте зеленью.']],
+  ['Огурцы со сметаной','Огурцы 2 шт., сметана, укроп','Нарежьте и заправьте.'],
+  'Рыбу в ланчбоксе грейте на средней мощности 1,5–2 минуты, чтобы не пересохла.'],
+ ['codtomato','fish',30,'Треска в томатном соусе с рисом',
+  [['Филе трески или минтая','600 г'],['Рис','180 г'],['Томаты в собственном соку','400 г'],['Лук','1 шт.'],['Морковь','1 шт.'],['Чеснок','2 зубчика'],['Паприка','1 ч. л.']],
+  [['Рис','Сварите рис: 180 г на 360 мл воды, под крышкой.',18],
+   ['Овощи','Обжарьте лук и тёртую морковь до мягкости, добавьте чеснок и паприку.',6],
+   ['Соус','Добавьте томаты, посолите и тушите.',5],
+   ['Рыба','Положите в соус куски рыбы, накройте крышкой и тушите, не перемешивая.',10]],
+  ['Свежая капуста','Капуста 250 г, огурец, масло, лимон','Нашинкуйте и заправьте.'],
+  'Рис и рыбу можно в один контейнер, хорошо разогревается.'],
+ ['teriyaki','bird',30,'Курица терияки с рисом и брокколи',
+  [['Куриное филе или бедро','600 г'],['Рис','180 г'],['Брокколи','400 г'],['Соевый соус','4 ст. л.'],['Мёд','2 ст. л.'],['Имбирь (свежий или молотый)','1 ч. л.'],['Чеснок','2 зубчика'],['Кунжут','1 ст. л.'],['Крахмал','1 ч. л.']],
+  [['Рис','Сварите рис под крышкой.',18],
+   ['Соус','Смешайте соевый соус, мёд, имбирь, тёртый чеснок, крахмал и 3 ст. л. воды.'],
+   ['Курица','Нарежьте курицу кусочками и обжарьте на сильном огне до румяности.',7],
+   ['Брокколи и соус','Брокколи отварите или приготовьте на пару. Влейте соус к курице и прогрейте, пока не загустеет и не покроет кусочки.',4],
+   ['Подача','Разложите рис, курицу и брокколи, посыпьте кунжутом.']],
+  ['Огурцы с кунжутом','Огурцы 2 шт., соевый соус, кунжут','Нарежьте и заправьте.'],
+  'Отлично подходит для ланчбокса: всё в один контейнер.'],
+ ['chickcutlet','bird',40,'Куриные котлеты с картофельным пюре',
+  [['Куриный фарш','600 г'],['Картофель','900 г'],['Лук','1 шт.'],['Яйцо','1 шт.'],['Хлеб или панировочные сухари','2 ломтика / 3 ст. л.'],['Молоко','150 мл'],['Сливочное масло','30 г']],
+  [['Пюре','Очистите картофель, залейте водой, посолите и варите до мягкости.',20],
+   ['Фарш','Смешайте фарш, мелко натёртый лук, яйцо, размоченный в молоке хлеб, соль и перец. Сформируйте 9–10 котлет.'],
+   ['Котлеты','Обжарьте по 3 минуты с каждой стороны, затем накройте крышкой и доведите на слабом огне.',10],
+   ['Пюре','Разомните картофель с маслом и горячим молоком.']],
+  ['Свёкла с чесноком','Варёная свёкла 2 шт., чеснок, сметана','Натрите и заправьте.'],
+  'Котлеты и пюре прекрасно переносят разогрев.'],
+ ['porkstir','meat',25,'Свинина с овощами и лапшой вок',
+  [['Свиная вырезка или шея','500 г'],['Лапша (яичная или удон)','250 г'],['Болгарский перец','2 шт.'],['Морковь','1 шт.'],['Кабачок или стручковая фасоль','300 г'],['Соевый соус','4 ст. л.'],['Чеснок','2 зубчика'],['Растительное масло','2 ст. л.']],
+  [['Подготовка','Мясо нарежьте тонкими полосками, овощи — соломкой. Поставьте воду для лапши.'],
+   ['Лапша','Сварите лапшу по инструкции и откиньте.',5],
+   ['Мясо','Очень сильно разогрейте сковороду с маслом и обжарьте мясо до румяности.',5],
+   ['Овощи','Добавьте овощи и чеснок, жарьте, помешивая, — они должны остаться хрустящими.',4],
+   ['Соединить','Добавьте лапшу и соевый соус, перемешайте и прогрейте минуту.']],
+  ['Редис и огурцы','Редис 1 пучок, огурцы 2 шт., масло, соль','Нарежьте и заправьте.'],
+  'В контейнер всё вместе, перед разогревом сбрызните водой.'],
+ ['meatballs','meat',40,'Тефтели в томатном соусе с гречкой',
+  [['Фарш говяжий или смешанный','600 г'],['Гречка','240 г'],['Лук','2 шт.'],['Морковь','1 шт.'],['Томаты в собственном соку','400 г'],['Яйцо','1 шт.'],['Рис (для тефтелей)','50 г'],['Сметана','2 ст. л.']],
+  [['Гречка','Сварите гречку: 240 г на 480 мл воды.',18],
+   ['Тефтели','Смешайте фарш, сваренный до полуготовности рис, яйцо, половину мелко нарезанного лука, соль и перец. Скатайте 15–18 тефтелей.'],
+   ['Обжарка','Обжарьте тефтели со всех сторон, добавьте остальной лук и тёртую морковь.',8],
+   ['Тушение','Влейте томаты и полстакана воды, добавьте сметану, посолите. Тушите под крышкой.',20]],
+  ['Квашеная капуста','Квашеная капуста 300 г, лук, масло','Заправьте маслом.'],
+  'Тефтели с соусом поверх гречки — в один контейнер.']
+];
+var TAGS={veg:'Без мяса',fish:'Рыба',bird:'Птица',meat:'Мясо'};
+var STAPLE=/^(соль|перец|сахар|растительное|оливковое|сливочное масло|мука|крахмал|чеснок|лук$|томатная паста|уксус|паприка|зира|орегано|сушёный|специи|копчёная|имбирь|вода)/i;
+BOOK.forEach(function(b){var id='b-'+b[0];
+  R[id]={book:true,tag:b[1],mins:b[2],short:b[3].toLowerCase(),title:b[3],time:b[2]+' мин',serves:'3 порции: ужин на двоих и порция на завтра',kcal:[null,null],cols:false,
+    ing:b[4].map(function(a){return [a[0],a[1],'','']}),
+    steps:b[5].map(function(s){return s[2]?[s[0],s[1],s[2]*60]:[s[0],s[1]]}),
+    salad:{t:b[6][0],k:'',i:b[6][1].split(', '),s:b[6][2]},lunchbox:b[7]};
+  mkLeftover(id)});
+function bookMissing(id){var home=homeNames();return R[id].ing.filter(function(a){return !STAPLE.test(a[0])&&!atHome(a[0],home)}).map(function(a){return a[0]+' — '+a[1]})}
+
+/* Панель у блюда: «Другой день» и «Заменить блюдо» */
+var PK=null; // {d, meal, mode:'swap'|'book', f:'all'|tag, quick:bool}
+function planIds(){var s={};DAYS.forEach(function(_,i){mealsOf(i).forEach(function(m){s[m[2]]=1})});return s}
+function pickPanel(x,m){var h='<div class="pick">';
+  if(PK.mode==='swap'){
+    var opts=[];DAYS.forEach(function(y,j){if(y.d<TODAY||y.d===x.d)return;mealsOf(j).forEach(function(q){var r=R[q[2]];if(!r||r.leftover||q[1]==='her'||q[0]!==m[0])return;opts.push([y,q,r])})});
+    h+='<b>Поменять «'+esc(R[m[2]].title)+'» местами с:</b>';
+    h+=opts.length?'<div class="plist">'+opts.map(function(o){return '<button type="button" class="pitem" data-pswap="'+o[0].d+'|'+o[1][0]+'"><span>'+o[0].w+' '+o[0].n+' · '+o[1][0].toLowerCase()+'</span><b>'+esc(o[2].title)+'</b></button>'}).join('')+'</div>'
+      :'<p class="legend">Нет других дней, с которыми можно поменять.</p>';
+  }else{
+    var inPlan=planIds();
+    var list=Object.keys(R).filter(function(k){var r=R[k];return (r.book||(r.ai&&!r.leftover))&&!inPlan[k]&&(PK.f==='all'||r.tag===PK.f)&&(!PK.quick||(r.mins||99)<=30)})
+      .map(function(k){var miss=R[k].book?bookMissing(k):(R[k].buy||[]);return {k:k,miss:miss,score:miss.length*10-avg(DATA.ratings[k])}})
+      .sort(function(a,b){return a.score-b.score}).slice(0,6);
+    h+='<b>Чем заменить «'+esc(R[m[2]].title)+'»?</b><div class="chips">'+[['all','Все']].concat(Object.keys(TAGS).map(function(t){return [t,TAGS[t]]})).map(function(c){
+      return '<button type="button" class="chip'+(PK.f===c[0]?' on':'')+'" data-pf="'+c[0]+'">'+c[1]+'</button>'}).join('')+
+      '<button type="button" class="chip'+(PK.quick?' on':'')+'" data-pq="1">До 30 минут</button></div>';
+    h+=list.length?'<div class="plist">'+list.map(function(o){var r=R[o.k];
+      return '<div class="pitem"><span>'+(r.tag?TAGS[r.tag]+' · ':r.ai?'от ИИ · ':'')+esc(r.time)+ratingText(o.k)+'</span><b>'+esc(r.title)+'</b>'+
+        (o.miss.length?'<small class="miss">Не хватает: '+esc(o.miss.join(', '))+'</small>':'<small class="have">✓ Всё есть дома</small>')+
+        '<div class="aiact"><button type="button" class="btn pri" data-puse="'+o.k+'">Выбрать</button><button type="button" class="btn" data-r="'+o.k+'">Рецепт</button></div></div>'}).join('')+'</div>'
+      :'<p class="legend">Под этот фильтр ничего не нашлось. Попробуйте «Все» или спросите ИИ.</p>';
+    h+='<p class="legend">Сначала блюда, для которых всё есть дома (по вкладке «Продукты» → «Дома»).</p>';
+  }
+  return h+'<button type="button" class="lnk" data-pclose="1">Закрыть</button></div>'}
+function decorateMeals(x){if(x.d<TODAY)return;
+  var cards=document.querySelectorAll('#v-menu .meal[data-r]');
+  Array.prototype.forEach.call(cards,function(c,k){var m=x.meals.filter(function(q){return R[q[2]]})[k];if(!m)return;var r=R[m[2]];
+    if(r.leftover||m[1]==='her')return;
+    var bar=document.createElement('div');bar.className='mbar';
+    bar.innerHTML='<button type="button" class="mb" data-pk="swap|'+m[0]+'">⇄ Другой день</button><button type="button" class="mb" data-pk="book|'+m[0]+'">↻ Заменить блюдо</button>';
+    c.insertAdjacentElement('afterend',bar);
+    if(PK&&PK.d===x.d&&PK.meal===m[0]){var p=document.createElement('div');p.innerHTML=pickPanel(x,m);bar.insertAdjacentElement('afterend',p.firstChild)}})}
+$('v-menu').addEventListener('click',function(e){var t;
+  if((t=e.target.closest('[data-pk]'))){var a=t.dataset.pk.split('|');var d=DAYS[cur].d;
+    PK=PK&&PK.d===d&&PK.meal===a[1]&&PK.mode===a[0]?null:{d:d,meal:a[1],mode:a[0],f:(PK&&PK.f)||'all',quick:PK&&PK.quick};renderMenu();return}
+  if(e.target.closest('[data-pclose]')){PK=null;renderMenu();return}
+  if((t=e.target.closest('[data-pf]'))){PK.f=t.dataset.pf;renderMenu();return}
+  if(e.target.closest('[data-pq]')){PK.quick=!PK.quick;renderMenu();return}
+  if((t=e.target.closest('[data-pswap]'))){var b=t.dataset.pswap.split('|');var p=planFromOps([{op:'swap',day:PK.d,meal:PK.meal,day2:b[0],meal2:b[1]}]);PK=null;commitPlan(p);return}
+  if((t=e.target.closest('[data-puse]'))){var id=t.dataset.puse;var p2=planFromOps([{op:'use',day:PK.d,meal:PK.meal,recipeId:id,buy:R[id].book?bookMissing(id):[]}]);PK=null;commitPlan(p2);return}
+},true);
 
 /* ---------- Пересчёт рецепта под фактическое количество продукта ---------- */
 var SCED=null,SC_SIG='';
