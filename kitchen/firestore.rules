@@ -1,0 +1,12 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Данные семьи лежат в families/<ключ из ссылки>/...
+    // Список всех семей получить нельзя: без ключа из ссылки данные не найти.
+    match /families/{fam}/{col}/{doc} {
+      allow get, list, delete: if fam.size() >= 24 && col in ['have', 'fridge', 'ratings'];
+      allow create, update: if fam.size() >= 24 && col in ['have', 'fridge', 'ratings']
+        && request.resource.data.size() <= 6;
+    }
+  }
+}

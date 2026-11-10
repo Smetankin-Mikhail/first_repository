@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#F2F5F0">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8D%B2%3C/text%3E%3C/svg%3E">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<title>Кухня на неделю</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Unbounded:wght@500;600&display=swap">
+<style>
+/* Layout: mobile app shell — sticky header with day strip, single column of meal cards, recipe opens as a full-screen sheet, fixed bottom tab bar. */
+:root{
+  --bg:#F2F5F0; --surface:#FFFFFF; --sunken:#E8EDE5; --ink:#1C231F; --muted:#5B665F; --line:#D9E0D5;
+  --herb:#2E6A4E; --herb-soft:#DCEBE1; --tomato:#C2452D; --tomato-soft:#F6E0DA;
+  --him:#2F5E8C; --him-soft:#DDE8F3; --her:#A8456A; --her-soft:#F4DFE7;
+  --display:"Unbounded","Manrope",system-ui,sans-serif;
+  --body:"Manrope",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111512; --surface:#191F1B; --sunken:#202823; --ink:#E6ECE7; --muted:#9BA69E; --line:#2B352F;
+  --herb:#74C196; --herb-soft:#1F3328; --tomato:#EE7A61; --tomato-soft:#3A221D;
+  --him:#86AEDB; --him-soft:#1C2A39; --her:#E68FAF; --her-soft:#3A2230; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111512; --surface:#191F1B; --sunken:#202823; --ink:#E6ECE7; --muted:#9BA69E; --line:#2B352F;
+  --herb:#74C196; --herb-soft:#1F3328; --tomato:#EE7A61; --tomato-soft:#3A221D;
+  --him:#86AEDB; --him-soft:#1C2A39; --her:#E68FAF; --her-soft:#3A2230; color-scheme:dark}
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--herb);outline-offset:2px}
+.wrap{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
+header.top .wrap{padding-block:14px 10px;display:flex;flex-direction:column;gap:10px}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.brand h1{font-family:var(--display);font-weight:600;font-size:19px;margin:0;letter-spacing:-.01em}
+.brand .wk{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.days{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.day{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:6px 0 5px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:0;position:relative}
+.day b{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.day span{font-family:var(--display);font-size:16px;font-weight:500;font-variant-numeric:tabular-nums}
+.day[aria-pressed="true"]{background:var(--herb);border-color:var(--herb);color:var(--surface)}
+.day[aria-pressed="true"] b{color:var(--surface);opacity:.85}
+.day .today{position:absolute;bottom:-4px;width:6px;height:6px;border-radius:50%;background:var(--tomato);border:2px solid var(--bg)}
+
+main{padding-block:16px calc(96px + env(safe-area-inset-bottom,0px))}
+.view{display:flex;flex-direction:column;gap:14px}
+.dayhead h2{font-family:var(--display);font-weight:500;font-size:22px;margin:0;text-wrap:balance}
+.dayhead p{margin:4px 0 0;color:var(--muted)}
+.notice{display:flex;gap:10px;align-items:flex-start;background:var(--tomato-soft);border-radius:12px;padding:10px 12px;font-size:14px}
+.notice svg{flex:none;margin-top:2px;color:var(--tomato)}
+
+.meal{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px;cursor:pointer;text-align:left;width:100%}
+.meal:hover{border-color:var(--herb)}
+.meal.static{cursor:default}
+.meal.static:hover{border-color:var(--line)}
+.meal .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tag{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.pill{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--sunken);color:var(--muted)}
+.pill.him{background:var(--him-soft);color:var(--him)}
+.pill.her{background:var(--her-soft);color:var(--her)}
+.pill.both{background:var(--herb-soft);color:var(--herb)}
+.meal h3{margin:0;font-size:18px;font-weight:700;line-height:1.3;text-wrap:balance}
+.meal .meta{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.meal .meta i{font-style:normal;font-weight:700}
+.meal .meta .h{color:var(--him)} .meal .meta .s{color:var(--her)}
+.meal .go{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:10px;font-size:14px;color:var(--herb);font-weight:600}
+.meal p{margin:0;color:var(--muted);font-size:14px}
+
+/* Recipe sheet */
+.sheet{position:fixed;inset:0;z-index:40;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
+.sheet .bar{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0px)}
+.sheet .bar .wrap{display:flex;align-items:center;gap:10px;padding-block:10px}
+.back{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px 6px 8px;cursor:pointer;font-weight:600;font-size:14px}
+.wake{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none}
+.wake input{accent-color:var(--herb);width:18px;height:18px}
+.sheet .body{padding-block:18px calc(110px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:22px}
+.rh h2{font-family:var(--display);font-weight:500;font-size:24px;line-height:1.2;margin:6px 0 8px;text-wrap:balance}
+.rh .sub{color:var(--muted);margin:0}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.fact{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.fact b{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.fact span{font-family:var(--display);font-size:17px;font-weight:500;font-variant-numeric:tabular-nums}
+.fact.h span{color:var(--him)} .fact.s span{color:var(--her)}
+section.blk h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:700}
+.tbl{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{padding:8px 10px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;background:var(--sunken)}
+th.h{color:var(--him)} th.s{color:var(--her)}
+td.n{font-weight:600}
+td.q{white-space:nowrap;color:var(--muted)}
+td.h{color:var(--him);white-space:nowrap;font-weight:600}
+td.s{color:var(--her);white-space:nowrap;font-weight:600}
+td .dash{color:var(--line)}
+.legend{font-size:13px;color:var(--muted);margin:8px 2px 0}
+
+ol.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;counter-reset:st}
+ol.steps li{counter-increment:st;display:grid;grid-template-columns:34px 1fr;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;cursor:pointer}
+ol.steps li::before{content:counter(st);font-family:var(--display);font-size:15px;font-weight:600;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--sunken);color:var(--ink)}
+ol.steps li.done{opacity:.55}
+ol.steps li.done::before{content:"✓";background:var(--herb);color:var(--surface)}
+ol.steps .st b{display:block;font-weight:700;margin-bottom:2px}
+ol.steps .st p{margin:0}
+.timer{margin-top:8px;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--herb);color:var(--herb);background:transparent;border-radius:999px;padding:4px 12px 4px 8px;font-size:13px;font-weight:700;cursor:pointer;font-variant-numeric:tabular-nums}
+.timer:hover{background:var(--herb-soft)}
+.box{background:var(--herb-soft);border-radius:var(--r);padding:12px 14px}
+.box p{margin:0}
+.box p+p{margin-top:6px}
+.salad{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:8px}
+.salad h4{margin:0;font-size:16px}
+.salad p{margin:0}
+.salad .k{font-size:13px;color:var(--muted)}
+.salad ul{margin:0;padding-left:18px}
+
+/* Shopping */
+.trip{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.trip .th{padding:14px;display:flex;flex-direction:column;gap:4px;border-bottom:1px solid var(--line)}
+.trip .th h3{margin:0;font-size:17px}
+.trip .th p{margin:0;color:var(--muted);font-size:14px}
+.prog{height:6px;border-radius:3px;background:var(--sunken);overflow:hidden;margin-top:6px}
+.prog i{display:block;height:100%;background:var(--herb);width:0;transition:width .2s}
+.grp{padding:10px 14px 4px}
+.grp h4{margin:4px 0 4px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.item{display:flex;gap:12px;align-items:flex-start;padding:8px 0;border-bottom:1px dashed var(--line);cursor:pointer}
+.grp .item:last-child{border-bottom:0}
+.item input{accent-color:var(--herb);width:20px;height:20px;margin:1px 0 0;flex:none}
+.item.done span{text-decoration:line-through;color:var(--muted)}
+.trip .tf{display:flex;gap:8px;flex-wrap:wrap;padding:12px 14px;border-top:1px solid var(--line);background:var(--sunken)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-size:14px;font-weight:600;cursor:pointer}
+.btn.pri{background:var(--herb);border-color:var(--herb);color:var(--surface)}
+.copyout{width:100%;min-height:120px;font:inherit;font-size:13px;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface);color:var(--ink)}
+
+/* Norms */
+.norms{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.norm{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:2px}
+.norm b{font-size:11px;letter-spacing:.07em;text-transform:uppercase;font-weight:700}
+.norm.h b{color:var(--him)} .norm.s b{color:var(--her)}
+.norm .big{font-family:var(--display);font-size:28px;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.2}
+.norm small{color:var(--muted);font-size:13px}
+.prose{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+.prose h3{margin:0 0 6px;font-size:16px}
+.prose p,.prose li{margin:0 0 6px;max-width:65ch}
+.prose ul{margin:0;padding-left:18px}
+
+/* Bottom nav + timers */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav.tabs .wrap{display:grid;grid-template-columns:repeat(3,1fr);padding-block:6px}
+nav.tabs button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;border-radius:10px}
+nav.tabs button[aria-current="page"]{color:var(--herb)}
+.timers{position:fixed;z-index:50;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));bottom:calc(74px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
+.tpill{pointer-events:auto;display:flex;align-items:center;gap:10px;background:var(--ink);color:var(--bg);border-radius:999px;padding:8px 8px 8px 16px;font-weight:600;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.18);max-width:100%}
+.tpill .tl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.tpill .tt{font-family:var(--display);font-variant-numeric:tabular-nums;font-weight:500}
+.tpill button{border:0;background:var(--muted);color:var(--bg);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer}
+.tpill.ring{background:var(--tomato);color:#fff}
+.tpill.ring button{background:rgba(255,255,255,.25);color:#fff}
+@media (prefers-reduced-motion: no-preference){.tpill.ring{animation:pulse 1s ease-in-out infinite}}
+@keyframes pulse{50%{transform:scale(1.03)}}
+/* Segmented, fridge, ratings */
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--sunken);border-radius:12px;padding:4px;gap:4px}
+.seg button{border:0;background:none;border-radius:9px;padding:8px 0;font-weight:700;font-size:14px;cursor:pointer;color:var(--muted);font-variant-numeric:tabular-nums}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.sync{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.sync.on i{background:var(--herb)} .sync.err{color:var(--tomato)} .sync.err i{background:var(--tomato)}
+.addrow{display:grid;grid-template-columns:1fr 92px auto;gap:8px;padding:14px}
+.addrow input{min-width:0;font:inherit;font-size:15px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:var(--bg);color:var(--ink)}
+.hrow{display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px dashed var(--line)}
+.grp .hrow:last-child{border-bottom:0}
+.hrow span{flex:1;min-width:0}
+.hrow small{color:var(--muted);margin-left:6px}
+.out{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;flex:none}
+.out:hover{border-color:var(--tomato);color:var(--tomato)}
+.empty{padding:14px;color:var(--muted);font-size:14px;margin:0}
+.rate{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.rrow{display:flex;align-items:center;gap:10px}
+.rrow b{width:44px;font-size:14px}
+.rrow b.h{color:var(--him)} .rrow b.s{color:var(--her)}
+.stars{display:flex;gap:2px}
+.star{border:0;background:none;padding:2px;cursor:pointer;color:var(--line);line-height:0}
+.star.on{color:#E0A526}
+.star svg{width:30px;height:30px}
+.rate textarea{font:inherit;font-size:14px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--bg);color:var(--ink);min-height:60px;resize:vertical;width:100%}
+.mstars{color:#E0A526;font-weight:700}
+.rank{display:flex;flex-direction:column}
+.rank .rr{display:flex;gap:10px;align-items:baseline;padding:8px 0;border-bottom:1px dashed var(--line)}
+.rank .rr:last-child{border-bottom:0}
+.rank .rr span{flex:1;min-width:0}
+.rank .rr em{font-style:normal;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+@media (max-width:380px){.addrow{grid-template-columns:1fr 70px}.addrow .btn{grid-column:1/-1}.facts{grid-template-columns:1fr 1fr}.days{gap:4px}.day span{font-size:15px}}
+</style>
+
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><h1>Кухня на неделю</h1><span class="wk">10–15 ноября</span></div>
+    <div class="days" id="days" role="group" aria-label="Дни недели"></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="view" id="v-menu"></div>
+  <div class="view" id="v-shop" hidden></div>
+  <div class="view" id="v-norms" hidden></div>
+</main>
+
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="r-title">
+  <div class="bar"><div class="wrap">
+    <button class="back" id="back" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Назад</button>
+    <label class="wake"><input type="checkbox" id="wake">Экран не гаснет</label>
+  </div></div>
+  <div class="wrap body" id="sheet-body"></div>
+</div>
+
+<div class="timers" id="timers" aria-live="polite"></div>
+
+<nav class="tabs" aria-label="Разделы"><div class="wrap">
+  <button type="button" data-tab="menu" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Меню</button>
+  <button type="button" data-tab="shop"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>Продукты</button>
+  <button type="button" data-tab="norms"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 12l6-6"/><circle cx="12" cy="12" r="1.5"/></svg>Итоги</button>
+</div></nav>
+
+<script>
+(function(){
+var store={get:function(k,d){try{var v=localStorage.getItem('kw_'+k);return v?JSON.parse(v):d}catch(e){return d}},
+           set:function(k,v){try{localStorage.setItem('kw_'+k,JSON.stringify(v))}catch(e){}}};
+
+/* ---------- Общие данные: что дома, свои продукты, оценки ---------- */
+var DATA={have:store.get('have',{}),fridge:store.get('fridge',[]),ratings:store.get('ratings',{})};
+var DB=null, SYNC='local', SYNCMSG='';
+var queues={};
+function serial(path,fn){queues[path]=(queues[path]||Promise.resolve()).then(fn).catch(dbErr)}
+function dbErr(e){var c=e&&e.code;
+  if(c==='permission-denied'){SYNC='err';SYNCMSG='Нет доступа к общему списку. Откройте сайт по полной ссылке, которую вам прислали.'}
+  else if(c==='resource-exhausted'){SYNC='err';SYNCMSG='Бесплатный лимит базы на сегодня закончился. Отметки сохранятся завтра.'}
+  else {SYNC='err';SYNCMSG='Не получилось сохранить. Проверьте интернет: как только он появится, отметки отправятся сами.'}
+  rerender()}
+function saveLocal(){store.set('have',DATA.have);store.set('fridge',DATA.fridge);store.set('ratings',DATA.ratings)}
+var API={
+  setHave:function(id,on){if(on)DATA.have[id]=1;else delete DATA.have[id];rerender();
+    if(DB){var ref=DB.doc('have/'+id);serial('have/'+id,function(){return on?ref.set({at:Date.now()}):ref.delete()})}else saveLocal()},
+  addFridge:function(name,qty){var item={name:name,qty:qty,at:Date.now()};
+    if(DB){var ref=DB.collection('fridge').doc();item.id=ref.id;DATA.fridge=DATA.fridge.concat([item]);rerender();
+      serial('fridge/'+ref.id,function(){return ref.set({name:name,qty:qty,at:item.at})})}
+    else{item.id='l'+item.at;DATA.fridge=DATA.fridge.concat([item]);saveLocal();rerender()}},
+  delFridge:function(id){DATA.fridge=DATA.fridge.filter(function(x){return x.id!==id});rerender();
+    if(DB){var ref=DB.doc('fridge/'+id);serial('fridge/'+id,function(){return ref.delete()})}else saveLocal()},
+  rate:function(rid,patch){var body=Object.assign({},DATA.ratings[rid]||{});
+    Object.keys(patch).forEach(function(k){if(patch[k]===null||patch[k]==='')delete body[k];else body[k]=patch[k]});
+    DATA.ratings[rid]=body;rerender();
+    if(DB){var ref=DB.doc('ratings/'+rid);serial('ratings/'+rid,function(){return Object.keys(body).length?ref.set(body):ref.delete()})}else saveLocal()}
+};
+/* Ключи из ссылки: #k=семья (общий список), &o=ключ владельца (калории и нормы). Запоминаются на телефоне. */
+function hashKeys(){var h={};(location.hash||'').replace(/^#/,'').split('&').forEach(function(p){var i=p.indexOf('=');if(i>0)h[p.slice(0,i)]=decodeURIComponent(p.slice(i+1))});return h}
+function b64(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
+function loadOwner(key){
+  if(!(window.crypto&&crypto.subtle&&window.fetch))return;
+  var raw;try{raw=b64(key)}catch(e){return}
+  fetch('owner.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(f){
+    return crypto.subtle.importKey('raw',raw,'AES-GCM',false,['decrypt']).then(function(k){
+      return crypto.subtle.decrypt({name:'AES-GCM',iv:b64(f.iv)},k,b64(f.ct))})
+  }).then(function(buf){applyOwner(JSON.parse(new TextDecoder().decode(buf)));rerender();
+    if(openId){var y=$('sheet').scrollTop;openRecipe(openId);$('sheet').scrollTop=y}
+  }).catch(function(){});
+}
+function connect(){
+  var h=hashKeys();
+  if(h.k)store.set('fam',h.k);
+  if(h.o){store.set('okey',h.o);try{history.replaceState(null,'',location.pathname+location.search+(h.k?'#k='+h.k:''))}catch(e){}}
+  var fam=store.get('fam',null),okey=store.get('okey',null);
+  if(okey)loadOwner(okey);
+  var cfg=window.FB_CONFIG;
+  if(!fam||fam.length<24||!cfg||!window.firebase)return;
+  var famRef;
+  try{if(!firebase.apps.length)firebase.initializeApp(cfg);famRef=firebase.firestore().collection('families').doc(fam)}catch(e){return}
+  DB={collection:function(c){return famRef.collection(c)},doc:function(p){var a=p.split('/');return famRef.collection(a[0]).doc(a[1])}};
+  var db=DB;SYNC='shared';SYNCMSG='';rerender();
+  var got=0;var t=setTimeout(function(){if(got<3){SYNC='err';SYNCMSG='Общий список пока недоступен. Проверьте интернет.';rerender()}},10000);
+  function ok(snap){if(!snap.metadata.fromCache){got++;if(got>=3)clearTimeout(t)}if(SYNC!=='err'||got>=3){SYNC='shared';SYNCMSG=''}}
+  function fail(e){clearTimeout(t);dbErr(e)}
+  var opt={includeMetadataChanges:true};
+  db.collection('have').onSnapshot(opt,function(s){var h={};s.docs.forEach(function(d){h[d.id]=1});DATA.have=h;ok(s);saveLocal();rerender()},fail);
+  db.collection('fridge').onSnapshot(opt,function(s){DATA.fridge=s.docs.map(function(d){return Object.assign({id:d.id},d.data())}).sort(function(a,b){return (a.at||0)-(b.at||0)});ok(s);saveLocal();rerender()},fail);
+  db.collection('ratings').onSnapshot(opt,function(s){var r={};s.docs.forEach(function(d){r[d.id]=d.data()});DATA.ratings=r;ok(s);saveLocal();rerender()},fail);
+}
+var rerender=function(){};
+
+/* ---------- Рецепты ---------- */
+var R={"pasta":{"short":"паста с фрикадельками","title":"Паста с фрикадельками из индейки","time":"30 мин","serves":"3 порции: ужин на двоих и её обед на завтра","kcal":[null,null],"cols":true,"ing":[["Фарш индейки","500 г","",""],["Яйцо","1 шт.","",""],["Лук","½ шт.","",""],["Чеснок","3 зубчика","",""],["Панировочные сухари","2 ст. л.","",""],["Паста (пенне или спагетти)","220 г","",""],["Томаты в собственном соку или пассата","700 г","",""],["Сухой базилик или орегано","1 ч. л.","",""],["Сахар","щепотка","",""],["Оливковое масло","1 ст. л.","",""],["Пармезан","30 г","",""],["Соль, чёрный перец","по вкусу","",""]],"steps":[["Подготовка","Поставьте на огонь большую кастрюлю с 2,5 л воды. Половину луковицы и 1 зубчик чеснока мелко натрите или порубите. Оставшиеся 2 зубчика нарежьте тонкими пластинками для соуса."],["Фарш","Смешайте фарш, яйцо, лук, чеснок, сухари, ½ ч. л. соли и перец. Вымешивайте рукой 1–2 минуты, пока масса не станет липкой: тогда фрикадельки не развалятся. Мокрыми руками скатайте 18–20 шариков размером с грецкий орех."],["Обжарка","Разогрейте масло в широкой сковороде на огне чуть выше среднего. Выложите фрикадельки в один слой и жарьте, поворачивая, до румяной корочки со всех сторон. Внутри они ещё сырые, это нормально: дойдут в соусе.",300],["Соус","Бросьте к фрикаделькам чеснок пластинками на 30 секунд. Добавьте томаты (целые разомните ложкой), базилик, щепотку сахара и ½ ч. л. соли. Доведите до кипения, убавьте огонь, накройте крышкой и тушите.",720],["Паста","Когда вода закипит, посолите её (1 ст. л. на 2,5 л) и варите пасту на 1 минуту меньше, чем написано на пачке. Перед тем как слить, отлейте полстакана воды из-под пасты.",600],["Соединить","Слейте пасту и вмешайте её в соус. Если соус получился густым, добавьте 2–3 ст. л. отлитой воды. Прогрейте всё вместе 1 минуту."],["Разложить","Отложите порцию в ланчбокс сразу, до ужина. Пармезан посыпьте при подаче."]],"lunchbox":"Её порцию остудите 20–30 минут с открытой крышкой и уберите в холодильник. Пармезан для неё положите в пакетик отдельно.","salad":{"t":"Руккола с черри и пармезаном","k":"","i":["Руккола 100 г","Черри 250 г","Оливковое масло 1 ст. л.","Бальзамик 1 ч. л., щепотка соли"],"s":"Черри разрежьте пополам. Заправку смешайте отдельно и полейте прямо перед едой, иначе руккола обмякнет. Часть рукколы и черри без заправки оставьте ей на завтрашний обед."}},"turkey":{"short":"индейка с булгуром","title":"Индейка в духовке с булгуром и стручковой фасолью","time":"35 мин, из них 10 активно","serves":"3 порции: ужин на двоих и её обед на завтра","kcal":[null,null],"cols":true,"ing":[["Филе грудки индейки","600 г","",""],["Булгур","200 г","",""],["Стручковая фасоль замороженная","500 г","",""],["Чеснок","2 зубчика","",""],["Копчёная паприка","1 ч. л.","",""],["Лимон","½ шт.","",""],["Оливковое масло","1 ст. л. + 1 ч. л.","",""],["Греческий йогурт","150 г","",""],["Укроп","½ пучка","",""],["Соль, чёрный перец","по вкусу","",""]],"steps":[["Духовка","Разогрейте духовку до 200 °C в режиме «верх-низ». Застелите противень бумагой для выпечки."],["Маринад","Нарежьте филе поперёк на стейки толщиной около 2 см. Смешайте 1 ст. л. масла, 1 тёртый зубчик чеснока, паприку, ½ ч. л. соли, перец и сок четвертинки лимона. Натрите стейки. Если есть 10–15 минут, дайте им полежать: мясо будет сочнее."],["Противень","Замороженную фасоль, не размораживая, выложите на одну половину противня, сбрызните 1 ч. л. масла и посолите. Стейки положите на другую половину, не вплотную друг к другу."],["Запекание","Поставьте противень на средний уровень. Готовность проверьте надрезом самого толстого стейка: мясо белое, сок прозрачный, внутри 72 °C. Не передерживайте, иначе грудка пересохнет.",1320],["Булгур","Пока мясо в духовке: прогрейте булгур в сухой кастрюле 1 минуту, помешивая, так появится ореховый вкус. Залейте 400 мл кипятка, добавьте ½ ч. л. соли и варите под крышкой на минимальном огне. Потом снимите с огня и дайте постоять ещё 5 минут.",720],["Соус","Мелко порубите укроп. Смешайте йогурт, укроп, второй тёртый зубчик чеснока, щепотку соли и пару капель лимона."],["Отдых и раскладка","Накройте мясо фольгой на 5 минут и нарежьте ломтиками. Порцию для ланчбокса отложите сразу."]],"lunchbox":"Её индейку сразу нарежьте ломтиками: в микроволновке они прогреются равномернее целого стейка. Соус — в отдельную баночку.","salad":{"t":"Капуста с морковью и яблоком","k":"","i":["Капуста белокочанная 300 г","Морковь 1 шт.","Яблоко 1 шт.","Растительное масло 1 ст. л.","Лимонный сок 1 ст. л., соль ½ ч. л."],"s":"Тонко нашинкуйте капусту, посолите и помните руками минуту, пока не пустит сок. Морковь натрите на крупной тёрке, яблоко нарежьте соломкой. Заправьте маслом и лимоном. Салат хорошо стоит до завтра: возьмите ей порцию в обед."}},"chili":{"short":"чили кон карне","title":"Чили кон карне с рисом","time":"40 мин","serves":"3 порции: ужин на двоих и её обед на завтра","kcal":[null,null],"cols":true,"ing":[["Говяжий фарш 10%","500 г","",""],["Рис","180 г","",""],["Лук","1 шт.","",""],["Болгарский перец","1 шт.","",""],["Чеснок","2 зубчика","",""],["Томатная паста","1 ст. л.","",""],["Томаты в собственном соку","400 г","",""],["Красная фасоль консервированная","1 банка","",""],["Кукуруза консервированная","150 г","",""],["Копчёная паприка","1 ч. л.","",""],["Зира молотая","1 ч. л.","",""],["Острый перец чили","¼–½ ч. л.","",""],["Растительное масло","1 ст. л.","",""],["Соль","по вкусу","",""]],"steps":[["Рис","Промойте рис до прозрачной воды. Залейте 360 мл холодной воды, добавьте ½ ч. л. соли и доведите до кипения. Накройте крышкой и варите на минимальном огне, не открывая.",1080],["Овощи","Лук и перец нарежьте кубиком около 1 см, чеснок — мелко. Разогрейте масло в сотейнике и жарьте лук с перцем до мягкости, в конце добавьте чеснок на 30 секунд.",300],["Фарш","Добавьте фарш и прибавьте огонь. Разбивайте его лопаткой на мелкие крошки и жарьте, пока не уйдёт розовый цвет.",360],["Специи","Всыпьте паприку, зиру, чили и томатную пасту. Перемешайте и жарьте ещё минуту: так специи раскроют аромат."],["Тушение","Фасоль откиньте на дуршлаг и промойте. Добавьте томаты, фасоль, кукурузу и ½ ч. л. соли. Тушите без крышки на слабом огне, помешивая, пока чили не загустеет. Попробуйте на соль и остроту.",1080],["Разложить","Разложите по тарелкам и сразу отложите порцию в ланчбокс."]],"lunchbox":"Чили и рис можно положить в один контейнер. Йогурт и салат — отдельно. На следующий день чили только вкуснее.","salad":{"t":"Перец, огурец и кинза","k":"","i":["Болгарский перец 1 шт.","Огурцы 2 шт.","Кинза несколько веточек","Сок ½ лайма, щепотка соли","Греческий йогурт 1–2 ст. л. на порцию"],"s":"Нарежьте перец и огурцы кубиком, добавьте рубленую кинзу, лайм и соль. На чили положите ложку йогурта вместо сметаны: он смягчает остроту."}},"fajitas":{"short":"фахитас","title":"Фахитас с курицей и перцем","time":"25 мин","serves":"2 порции, ужин на двоих","kcal":[null,null],"cols":true,"ing":[["Куриное филе","400 г","",""],["Болгарский перец разных цветов","2 шт.","",""],["Красный лук","1 шт.","",""],["Лайм","1 шт.","",""],["Копчёная паприка","1 ч. л.","",""],["Зира молотая","½ ч. л.","",""],["Чеснок","1 зубчик","",""],["Соль","½ ч. л.","",""],["Растительное масло","1 ст. л.","",""],["Пшеничные тортильи, около 20 см","5 шт.","",""],["Греческий йогурт","4 ст. л.","",""],["Тёртый сыр","20 г","",""]],"steps":[["Маринад","Нарежьте курицу полосками толщиной около 1 см. Смешайте с соком половины лайма, паприкой, зирой, тёртым чесноком, солью и половиной масла. Пусть постоит, пока режете овощи."],["Овощи","Перец нарежьте полосками шириной 1 см, лук — тонкими полукольцами."],["Курица","Очень сильно разогрейте сковороду. Выложите курицу в один слой и не трогайте 2 минуты, чтобы появилась корочка. Затем перемешайте и жарьте ещё 3–4 минуты до готовности. Переложите в миску.",360],["Перец и лук","В ту же сковороду налейте остаток масла и жарьте перец с луком на сильном огне: они должны остаться чуть хрустящими. Верните курицу и сбрызните соком лайма.",240],["Тортильи","Прогрейте каждую тортилью на сухой сковороде по 15–20 секунд с каждой стороны. Сложите стопкой под полотенце, чтобы не остыли."],["Сборка","Ставьте всё на стол и собирайте сами: йогурт, начинка, ложка салата, по желанию сыр."]],"salad":{"t":"Авокадо, томаты и лайм","k":"","i":["Авокадо 1 шт.","Томаты 2 шт.","Красный лук немного","Кинза, сок ½ лайма, соль"],"s":"Нарежьте авокадо и томаты кубиком, лук — совсем мелко. Смешайте с кинзой, лаймом и солью прямо перед едой: авокадо быстро темнеет. Его можно класть и внутрь тортильи."}},"borscht":{"short":"борщ","title":"Борщ","time":"1 ч 40 мин, из них 40 мин активно","serves":"5–6 порций: обед в субботу и в воскресенье, остаток в морозилку","kcal":[null,null],"cols":false,"ing":[["Говядина на кости","700 г","",""],["Вода","2,5 л","",""],["Свёкла","2 средние, ~400 г","",""],["Капуста белокочанная","400 г","",""],["Картофель","3 шт., ~350 г","",""],["Морковь","1 шт.","",""],["Лук","1 шт.","",""],["Томатная паста","2 ст. л.","",""],["Лимонный сок","1 ст. л.","",""],["Чеснок","2 зубчика","",""],["Лавровый лист","2 шт.","",""],["Перец горошком","5 шт.","",""],["Растительное масло","1 ст. л.","",""],["Соль","~1,5 ч. л.","",""],["Сметана 10–15% к подаче","3 ст. л.","",""],["Ржаной хлеб к подаче","3 ломтика","",""],["Укроп или петрушка","","",""]],"steps":[["Бульон","Промойте мясо, залейте 2,5 л холодной воды и доведите до кипения. Первые 5 минут снимайте пену шумовкой. Добавьте лавровый лист и перец горошком, убавьте огонь до едва заметного кипения, приоткройте крышку. Без кости варите 50 минут.",3600],["Зажарка","Пока варится бульон, натрите свёклу и морковь на крупной тёрке, лук нарежьте кубиком. Обжарьте лук на масле 3 минуты, добавьте морковь и свёклу, ещё через 3 минуты — томатную пасту и лимонный сок. Влейте 2–3 ст. л. бульона и тушите под крышкой на слабом огне. Кислота сохраняет свёкле яркий цвет.",900],["Мясо","Достаньте мясо, отделите от кости и нарежьте небольшими кусочками. Бульон посолите (1 ч. л.)."],["Картофель","Нарежьте картофель кубиками и опустите в кипящий бульон.",600],["Капуста","Тонко нашинкуйте капусту и добавьте в кастрюлю.",360],["Сборка","Добавьте зажарку, мясо и выдавленный чеснок. Доведите до кипения и сразу выключите: если долго кипятить со свёклой, борщ побуреет. Попробуйте на соль."],["Настоять","Накройте крышкой и дайте постоять 15 минут. За это время накройте на стол и нарежьте овощи.",900],["Подача","Разлейте по тарелкам, добавьте сметану и посыпьте зеленью. Подавайте с ржаным хлебом."]],"lunchbox":"Остывший борщ уберите в холодильник, он хранится 3 дня. Лишние 1–2 порции заморозьте в контейнерах: пролежат до 3 месяцев.","salad":{"t":"Овощная нарезка","k":"","i":["Огурцы 2–3 шт.","Редис 1 пучок","Зелень"],"s":"Просто нарежьте и поставьте на стол. Хрустящие овощи хорошо оттеняют горячий борщ."}},"sunlunch":{"short":"борщ и тост","title":"Борщ второго дня и тост с яйцом","time":"15 мин","serves":"2 порции, обед на двоих","kcal":[null,null],"cols":true,"ing":[["Борщ (из субботы)","800 мл","",""],["Сметана 10–15%","3 ст. л.","",""],["Ржаной хлеб","3 ломтика","",""],["Яйца","3 шт.","",""],["Помидор","1 шт.","",""],["Растительное масло","1 ч. л.","",""],["Соль, перец, зелень","по вкусу","",""]],"steps":[["Борщ","Разогрейте в кастрюле только нужные две порции, до кипения, и сразу выключите. Каждый раз кипятить всю кастрюлю не стоит."],["Хлеб","Подсушите хлеб на сухой сковороде по минуте с каждой стороны.",120],["Яйца","В той же сковороде на капле масла разбейте яйца, посолите и накройте крышкой. Через 3 минуты белок схватится, а желток останется жидким.",180],["Сборка","Положите на хлеб ломтики помидора, сверху яйцо. Поперчите и посыпьте зеленью."]],"salad":{"t":"Овощная нарезка","k":"","i":["Огурцы, редис, зелень — из субботы"],"s":"Остатки субботних овощей тоже на стол."}},"pork":{"short":"вырезка с овощами","title":"Свиная вырезка с запечёнными овощами","time":"55 мин, из них 15 активно","serves":"2 порции, ужин на двоих","kcal":[null,null],"cols":true,"ing":[["Свиная вырезка","500 г","",""],["Картофель","370 г","",""],["Кабачок, перец, морковь, красный лук","~600 г","",""],["Оливковое масло","1,5 ст. л.","",""],["Горчица","1 ст. л.","",""],["Мёд","1 ч. л.","",""],["Чеснок","2 зубчика","",""],["Розмарин или тимьян","2 веточки или 1 ч. л. сухого","",""],["Соль, чёрный перец","по вкусу","",""]],"steps":[["Заранее","Разогрейте духовку до 200 °C. Достаньте мясо из холодильника за 20–30 минут: оно прожарится ровнее."],["Овощи в духовку","Картофель нарежьте дольками, морковь брусками, кабачок полукружьями 1,5 см, перец крупными кусками, лук дольками. Смешайте с 1 ст. л. масла, ½ ч. л. соли, перцем и травами. Выложите на противень в один слой. Через 20 минут перемешайте.",2400],["Мясо","Срежьте с вырезки плёнку, обсушите бумажным полотенцем, натрите солью и перцем. Смешайте горчицу, мёд и тёртый чеснок."],["Обжарка","Сильно разогрейте сковороду с ½ ст. л. масла. Обжарьте вырезку со всех сторон примерно по минуте до корочки. Смажьте горчичной смесью.",240],["Запекание","Через 15 минут после овощей положите мясо в духовку: на овощи или в отдельную форму. Готово, когда в центре 63 °C — мясо сочное и чуть розоватое. Без термометра проколите: сок должен быть прозрачным.",1320],["Отдых","Переложите мясо на доску и накройте фольгой. Затем нарежьте медальонами толщиной 1,5–2 см поперёк волокон.",600],["Разложить","Разложите медальоны и овощи по тарелкам."]],"salad":{"t":"Греческий салат","k":"","i":["Огурцы 2 шт., томаты 2 шт.","Болгарский перец 1 шт.","Красный лук немного","Маслины 8–10 шт.","Фета 80 г","Оливковое масло 1 ст. л., орегано"],"s":"Нарежьте овощи крупно, лук — тонкими кольцами. Фету положите сверху кубиками или ломтем, полейте маслом и посыпьте орегано. Солите осторожно: фета и маслины уже солёные."}},"chicken":{"short":"курица с тыквой","title":"Куриные бёдра с тыквой и нутом","time":"50 мин, из них 15 активно","serves":"3 порции: ужин на двоих и её обед в понедельник","kcal":[null,null],"cols":true,"ing":[["Филе куриного бедра без кожи","600 г","",""],["Тыква (лучше мускатная), очищенная","800 г","",""],["Нут консервированный","1 банка","",""],["Красный лук","1 шт.","",""],["Оливковое масло","2 ст. л.","",""],["Мёд","1 ч. л.","",""],["Копчёная паприка","1 ч. л.","",""],["Зира","1 ч. л.","",""],["Чеснок","3 зубчика","",""],["Соль","1 ч. л.","",""],["Кускус, по желанию","60 г","",""]],"steps":[["Духовка","Разогрейте духовку до 200 °C. Возьмите самый большой противень и застелите бумагой: всё должно лечь в один слой, иначе овощи будут тушиться, а не запекаться."],["Подготовка","Очистите тыкву овощечисткой, удалите семечки и нарежьте кубиками 2 см. Лук нарежьте дольками. Нут откиньте, промойте и обсушите полотенцем: сухой нут запечётся с хрустящей корочкой."],["Маринад","В большой миске смешайте масло, мёд, паприку, зиру, соль и перец. Половиной смеси обмажьте курицу, второй половиной — тыкву, нут и лук."],["Противень","Разложите овощи и нут, курицу — между ними. Чеснок раздавите ножом и положите целыми зубчиками рядом."],["Запекание","Через 20 минут перемешайте овощи. Готово, когда тыква мягкая и с карамельными краями, а сок курицы прозрачный.",2100],["Кускус на гарнир","По желанию: залейте 60 г кускуса 90 мл кипятка с щепоткой соли, накройте на 5 минут и разрыхлите вилкой.",300],["Разложить","Разложите по тарелкам и сразу отложите порцию в контейнер на обед в понедельник."]],"lunchbox":"Её порция на понедельник: остудите и уберите в холодильник. Салат на обед соберите утром, без заправки.","salad":{"t":"Свёкла, руккола и фета","k":"","i":["Варёная свёкла 2 шт. (~300 г)","Руккола 50 г","Фета 60 г","Грецкие орехи 20 г","Оливковое масло 1 ч. л., бальзамик 1 ч. л."],"s":"Нарежьте свёклу кубиком. Орехи подсушите на сухой сковороде 2 минуты. Выложите рукколу, сверху свёклу, раскрошенную фету и орехи, полейте маслом с бальзамиком."}},"l-pasta":{"src":"pasta","short":"паста с фрикадельками","title":"Паста с фрикадельками из индейки","leftover":true,"time":"5 мин","serves":"Её обед из вчерашнего ужина","kcal":[null,null],"steps":[["Вечером","Порцию отложили сразу после готовки. Остудите её 20–30 минут с открытой крышкой и уберите в холодильник. Хранится до 3 дней."],["Утром","Положите рукколу и черри в отдельный маленький контейнер, заправку налейте в баночку. Пармезан — в пакетик."],["Разогрев","Сбрызните пасту 1 ст. л. воды, чтобы не пересохла. Приоткройте крышку и грейте 2–2,5 минуты на 800 Вт, на середине перемешайте. Пармезан посыпьте после разогрева."]]},"l-turkey":{"src":"turkey","short":"индейка с булгуром","title":"Индейка в духовке с булгуром и стручковой фасолью","leftover":true,"time":"5 мин","serves":"Её обед из вчерашнего ужина","kcal":[null,null],"steps":[["Вечером","Порцию отложили сразу после готовки. Остудите её 20–30 минут с открытой крышкой и уберите в холодильник. Хранится до 3 дней."],["Утром","Йогуртовый соус — в отдельную баночку, его не греют. Порцию капустного салата — в отдельный контейнер: за ночь он стал только вкуснее."],["Разогрев","Индейку ломтиками и булгур с фасолью грейте 2 минуты на 800 Вт под приоткрытой крышкой. Соус — сверху после разогрева."]]},"l-chili":{"src":"chili","short":"чили кон карне","title":"Чили кон карне с рисом","leftover":true,"time":"5 мин","serves":"Её обед из вчерашнего ужина","kcal":[null,null],"steps":[["Вечером","Порцию отложили сразу после готовки. Остудите её 20–30 минут с открытой крышкой и уберите в холодильник. Хранится до 3 дней."],["Утром","Йогурт и свежий салат из перца и огурца положите отдельно от горячего."],["Разогрев","Грейте 2,5–3 минуты на 800 Вт, на середине перемешайте. Ложку йогурта — сверху после разогрева."]]}};
+
+/* Деление порций, калории и нормы — только по ссылке владельца (зашифрованы в owner.json) */
+var PRIV=false,OWN_NORMS='';
+function stepFor(id,s){return [s[0],s[1]]}
+function pubTxt(x){return x}
+function applyOwner(o){Object.keys(o.R).forEach(function(id){var r=R[id],p=o.R[id];if(!r)return;r.kcal=p.kcal;
+  if(p.ing&&r.ing)p.ing.forEach(function(c,i){if(r.ing[i]){r.ing[i][2]=c[0];r.ing[i][3]=c[1]}});
+  if(p.salad&&r.salad){r.salad.k=p.salad.k;r.salad.i=p.salad.i}
+  r.steps=r.steps.map(function(s,i){var q=p.steps[i]||s;return s[2]?[q[0],q[1],s[2]]:[q[0],q[1]]})});
+  OWN_NORMS=o.norms;PRIV=true}
+
+/* ---------- Дни ---------- */
+var DAYS=[
+ {d:'2026-11-10',w:'Вт',n:'10',label:'Вторник, 10 ноября',note:'Обед сегодня уже прошёл, поэтому меню начинается с ужина. Сегодня первая закупка.',meals:[['Ужин','both','pasta']]},
+ {d:'2026-11-11',w:'Ср',n:'11',label:'Среда, 11 ноября',meals:[['Обед','her','l-pasta'],['Ужин','both','turkey']]},
+ {d:'2026-11-12',w:'Чт',n:'12',label:'Четверг, 12 ноября',note:'Сегодня вторая закупка, на четверг–воскресенье.',meals:[['Обед','her','l-turkey'],['Ужин','both','chili']]},
+ {d:'2026-11-13',w:'Пт',n:'13',label:'Пятница, 13 ноября',meals:[['Обед','her','l-chili'],['Ужин','both','fajitas']]},
+ {d:'2026-11-14',w:'Сб',n:'14',label:'Суббота, 14 ноября',meals:[['Обед','both','borscht'],['Ужин','both','pork']]},
+ {d:'2026-11-15',w:'Вс',n:'15',label:'Воскресенье, 15 ноября',meals:[['Обед','both','sunlunch'],['Ужин','both','chicken']]}];
+var WHO={both:'Обоим',her:'Ей, в ланчбокс',him:'Ему'};
+
+function todayStr(){var t=new Date();return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0')}
+var TODAY=todayStr();
+var cur=store.get('day',null);
+if(cur===null||cur>=DAYS.length){cur=0;DAYS.forEach(function(x,i){if(x.d===TODAY)cur=i})}
+
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+var $=function(id){return document.getElementById(id)};
+var clock='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg>';
+var info='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>';
+function rid(id){return R[id].src||id}
+function avg(r){if(!r)return 0;var v=[r.him,r.her].filter(Boolean);return v.length?v.reduce(function(x,y){return x+y},0)/v.length:0}
+function num(x){return String(Math.round(x*10)/10).replace('.',',')}
+function ratingText(id){var a=avg(DATA.ratings[rid(id)]);return a?'<span class="mstars">★ '+num(a)+'</span>':''}
+var starSvg='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></svg>';
+function rateBlock(id){var k=rid(id);var r=DATA.ratings[k]||{};
+  function row(who,label,cls){var v=r[who]||0;var s='';for(var i=1;i<=5;i++)s+='<button type="button" class="star'+(i<=v?' on':'')+'" data-rate="'+who+'" data-v="'+i+'" aria-label="'+label+': '+i+' из 5"'+(i===v?' aria-pressed="true"':'')+'>'+starSvg+'</button>';
+    return '<div class="rrow"><b class="'+cls+'">'+label+'</b><div class="stars" role="group" aria-label="Оценка: '+label+'">'+s+'</div></div>'}
+  return row('him','Он','h')+row('her','Она','s')+
+   '<textarea id="note-'+k+'" data-note="'+k+'" placeholder="Заметка: что поменять в следующий раз">'+esc(r.note||'')+'</textarea>'+
+   '<p class="legend" style="margin:0">'+(r.him||r.her?'Нажмите на ту же звезду ещё раз, чтобы сбросить оценку.':'Оцените после того, как попробуете.')+'</p>'}
+function mins(s){var m=Math.round(s/60);return m>=60?(Math.floor(m/60)+' ч'+(m%60?' '+m%60+' мин':'')):m+' мин'}
+
+function renderDays(){
+  $('days').innerHTML=DAYS.map(function(x,i){return '<button type="button" class="day" aria-pressed="'+(i===cur)+'" data-i="'+i+'" aria-label="'+esc(x.label)+'"><b>'+x.w+'</b><span>'+x.n+'</span>'+(x.d===TODAY?'<i class="today" title="Сегодня"></i>':'')+'</button>'}).join('');
+}
+function renderMenu(){
+  var x=DAYS[cur];var h='<div class="dayhead"><h2>'+esc(x.label)+'</h2><p>'+(x.d===TODAY?'Сегодня':'Нажмите на блюдо, чтобы открыть рецепт')+'</p></div>';
+  if(x.note)h+='<div class="notice">'+info+'<span>'+esc(x.note)+'</span></div>';
+  x.meals.forEach(function(m){var r=R[m[2]];
+    h+='<button type="button" class="meal" data-r="'+m[2]+'"><div class="row"><span class="tag">'+m[0]+'</span><span class="pill '+(m[1]==='her'?'her':'both')+'">'+WHO[m[1]]+'</span></div>'+
+      '<h3>'+esc(r.title)+(r.leftover?' <span style="font-weight:500;color:var(--muted)">— вчерашний ужин</span>':'')+'</h3>'+
+      '<div class="meta"><span>'+clock.replace('width="15"','width="13"').replace('height="15"','height="13"')+' '+esc(r.time)+'</span>'+
+      (PRIV?((r.kcal[0]?'<span class="h">ему <i>≈ '+r.kcal[0]+'</i> ккал</span>':'')+'<span class="s">ей <i>≈ '+r.kcal[1]+'</i> ккал</span>'):'')+ratingText(m[2])+'</div>'+
+      (r.salad&&!r.leftover?'<p>+ '+esc(r.salad.t.toLowerCase())+'</p>':'')+
+      '<div class="go"><span>'+(r.leftover?'Как собрать и разогреть':'Открыть рецепт')+'</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div></button>';
+  });
+  $('v-menu').innerHTML=h;
+}
+
+/* ---------- Рецепт ---------- */
+var openId=null;
+function openRecipe(id){
+  openId=id;var r=R[id];var done=store.get('st_'+id,[]);
+  var h='<div class="rh"><span class="tag">'+esc(r.serves)+'</span><h2 id="r-title">'+esc(r.title)+'</h2>'+
+   '<div class="facts"><div class="fact"><b>Время</b><span>'+esc(r.time.split(',')[0])+'</span></div>'+
+   (PRIV?((r.kcal[0]?'<div class="fact h"><b>Ему</b><span>≈ '+r.kcal[0]+'</span></div>':'')+
+   '<div class="fact s"><b>Ей</b><span>≈ '+r.kcal[1]+'</span></div>'):'')+'</div>'+
+   (PRIV?'<p class="legend">Калорийность блюда на одну порцию, без салата.</p>':'')+'</div>';
+  if(r.ing){
+    h+='<section class="blk"><h3>Ингредиенты</h3><div class="tbl"><table><thead><tr><th>Продукт</th><th>'+(PRIV?'Всего':'Количество')+'</th>'+(PRIV&&(r.cols||r.ing.some(function(a){return a[2]}))?'<th class="h">Ему</th><th class="s">Ей</th>':'')+'</tr></thead><tbody>'+
+     r.ing.map(function(a){var split=PRIV&&(r.cols||r.ing.some(function(z){return z[2]}));
+       return '<tr><td class="n">'+esc(a[0])+'</td><td class="q">'+esc(a[1]||'')+'</td>'+(split?'<td class="h">'+(a[2]?esc(a[2]):'<span class="dash">—</span>')+'</td><td class="s">'+(a[3]?esc(a[3]):'<span class="dash">—</span>')+'</td>':'')+'</tr>'}).join('')+
+     '</tbody></table></div>'+(PRIV&&r.ing.some(function(a){return /2 ×/.test(a[3]||'')})?'<p class="legend">«2 ×» у неё — порция на ужин и такая же в ланчбокс. Граммовки — в сыром виде.</p>':'<p class="legend">Граммовки — в сыром виде.</p>')+'</section>';
+  }
+  h+='<section class="blk"><h3>'+(r.leftover?'Как собрать':'Приготовление')+' · отмечайте шаги касанием</h3><ol class="steps">'+
+    r.steps.map(function(s,i){var sp=stepFor(id,s);return '<li data-s="'+i+'" class="'+(done.indexOf(i)>-1?'done':'')+'"><div class="st"><b>'+esc(sp[0])+'</b><p>'+esc(sp[1])+'</p>'+
+      (s[2]?'<button type="button" class="timer" data-t="'+s[2]+'" data-l="'+esc(stepFor(id,s)[0])+'">'+clock+' Таймер '+mins(s[2])+'</button>':'')+'</div></li>'}).join('')+'</ol></section>';
+  if(r.lunchbox)h+='<section class="blk"><h3>Хранение и ланчбокс</h3><div class="box"><p>'+esc(r.lunchbox)+'</p></div></section>';
+  if(r.salad&&!r.leftover)h+='<section class="blk"><h3>Свежие овощи к блюду</h3><div class="salad"><h4>'+esc(r.salad.t)+'</h4>'+(PRIV?'<span class="k">'+esc(r.salad.k)+'</span>':'')+'<ul>'+r.salad.i.map(function(x){return '<li>'+esc(pubTxt(x))+'</li>'}).join('')+'</ul><p>'+esc(r.salad.s)+'</p></div></section>';
+  h+='<section class="blk"><h3>Как вам блюдо?</h3><div class="rate" id="rate-box">'+rateBlock(id)+'</div></section>';
+  $('sheet-body').innerHTML=h;$('sheet').hidden=false;$('sheet').scrollTop=0;document.body.style.overflow='hidden';
+  $('wake').checked=store.get('wake',false);if($('wake').checked)wakeOn();
+  $('back').focus();
+}
+function closeRecipe(){$('sheet').hidden=true;document.body.style.overflow='';openId=null;wakeOff()}
+
+var lock=null;
+function wakeOn(){try{if(navigator.wakeLock)navigator.wakeLock.request('screen').then(function(l){lock=l}).catch(function(){})}catch(e){}}
+function wakeOff(){try{if(lock){lock.release();lock=null}}catch(e){}}
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&openId&&$('wake').checked)wakeOn()});
+
+/* ---------- Таймеры ---------- */
+var timers=[];var actx=null;
+function beep(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();var t=actx.currentTime;[0,0.35,0.7].forEach(function(o){var g=actx.createGain(),os=actx.createOscillator();os.frequency.value=880;os.connect(g);g.connect(actx.destination);g.gain.setValueAtTime(0.0001,t+o);g.gain.exponentialRampToValueAtTime(0.3,t+o+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+o+0.25);os.start(t+o);os.stop(t+o+0.3)})}catch(e){}
+  try{navigator.vibrate&&navigator.vibrate([300,150,300])}catch(e){}}
+function addTimer(sec,label){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();actx.resume&&actx.resume()}catch(e){}
+  timers.push({id:Date.now()+Math.random(),label:label,end:Date.now()+sec*1000,rang:false});drawTimers()}
+function fmt(ms){var s=Math.max(0,Math.ceil(ms/1000));var m=Math.floor(s/60);return (m>=60?Math.floor(m/60)+':'+String(m%60).padStart(2,'0'):m)+':'+String(s%60).padStart(2,'0')}
+function drawTimers(){var now=Date.now();
+  $('timers').innerHTML=timers.map(function(t){var left=t.end-now;var ring=left<=0;
+    if(ring&&!t.rang){t.rang=true;beep()}
+    return '<div class="tpill'+(ring?' ring':'')+'"><span class="tl">'+(ring?'Готово: ':'')+esc(t.label)+'</span><span class="tt">'+(ring?'0:00':fmt(left))+'</span><button type="button" data-x="'+t.id+'">'+(ring?'ОК':'Стоп')+'</button></div>'}).join('')}
+setInterval(function(){if(timers.length)drawTimers()},1000);
+$('timers').addEventListener('click',function(e){var b=e.target.closest('[data-x]');if(!b)return;timers=timers.filter(function(t){return String(t.id)!==b.dataset.x});drawTimers()});
+
+/* ---------- Покупки ---------- */
+var TRIPS=[
+ {id:'p1',title:'Закупка 1 — сегодня, вт 10 ноября',sub:'На ужины вторника и среды и завтраки',groups:[
+  ['Мясо и птица',['Фарш индейки — 500 г','Филе грудки индейки — 600 г']],
+  ['Овощи и зелень',['Руккола — 100 г','Черри — 250 г','Капуста белокочанная — небольшой кочан, ~700 г (300 г в среду, 400 г в борщ)','Морковь — 1 шт.','Яблоко — 1 шт.','Лук — 1 шт.','Чеснок — 2 головки','Лимон — 1 шт.','Укроп — 1 пучок']],
+  ['Заморозка и консервы',['Стручковая фасоль замороженная — 500 г','Томаты в собственном соку или пассата — 700 г']],
+  ['Бакалея',['Паста (пенне или спагетти) — 220 г','Булгур — 200 г']],
+  ['Молочное и яйца',['Яйца — 10 шт.','Пармезан — 30–50 г','Греческий йогурт — 400 г']],
+  ['Завтраки и перекусы',['Цельнозерновой хлеб','Творог 2–5% или творожки, йогурты','Сыр, куриная грудка или ветчина для бутербродов','Фрукты для перекусов']]]},
+ {id:'p2',title:'Закупка 2 — четверг, 12 ноября',sub:'На четверг–воскресенье',groups:[
+  ['Мясо и птица',['Говяжий фарш 10% — 500 г','Куриное филе — 400 г','Говядина на кости — 700 г','Свиная вырезка — 500 г','Филе куриного бедра без кожи — 600 г']],
+  ['Овощи и зелень',['Картофель — 1 кг','Тыква — ~1,1 кг целой (800 г очищенной)','Свёкла — 2 сырые и 2 варёные','Болгарский перец — 6 шт., разных цветов','Огурцы — 7 шт.','Томаты — 5 шт.','Редис — 1 пучок','Кабачок — 1 шт.','Морковь — 2 шт.','Лук — 2 шт.','Красный лук — 3 шт.','Авокадо — 1 шт.','Лаймы — 2 шт.','Кинза — 1 пучок','Укроп или петрушка — 1 пучок','Руккола — 50 г','Розмарин или тимьян']],
+  ['Консервы и бакалея',['Красная фасоль — 1 банка','Кукуруза — 1 небольшая банка','Нут — 1 банка','Томаты в собственном соку — 400 г','Маслины — небольшая банка','Пшеничные тортильи — 5 шт.','Ржаной хлеб','Грецкие орехи — 20 г','Кускус — 60 г, по желанию']],
+  ['Молочное и яйца',['Фета — 150 г','Сметана 10–15% — 200 г','Тёртый сыр — 20 г','Греческий йогурт, если закончился','Яйца, если осталось меньше 3']]]},
+ {id:'pan',title:'Проверить дома',sub:'Это нужно на всю неделю',groups:[
+  ['Кладовая',['Рис — 180 г','Оливковое и растительное масло','Бальзамик, мёд, горчица, томатная паста','Панировочные сухари, сахар','Копчёная паприка, зира, чили','Базилик или орегано, лавровый лист, перец горошком','Соль, молотый чёрный перец','Бумага для выпечки и фольга','Контейнеры для обедов, 3–4 шт.']]]}];
+
+var shopSeg=store.get('seg','buy');
+function itemId(t,gi,j){return t.id+'-'+gi+'-'+j}
+function syncLine(){
+  if(SYNC==='shared')return '<p class="sync on"><i></i>Общий список: изменения видны на обоих телефонах</p>';
+  if(SYNC==='err')return '<p class="sync err"><i></i>'+esc(SYNCMSG)+'</p>';
+  return '<p class="sync"><i></i>Отметки сохраняются на этом телефоне</p>'}
+function counts(){var buy=0,home=DATA.fridge.length;TRIPS.forEach(function(t){t.groups.forEach(function(g,gi){g[1].forEach(function(_,j){if(DATA.have[itemId(t,gi,j)])home++;else buy++})})});return {buy:buy,home:home}}
+function renderShop(){
+  var fn=$('f-name'),fq=$('f-qty');var keep={n:fn?fn.value:'',q:fq?fq.value:'',f:document.activeElement&&document.activeElement.id};
+  var c=counts();
+  var h='<div class="dayhead"><h2>Продукты</h2>'+syncLine()+'</div>'+
+   '<div class="seg" role="group" aria-label="Список"><button type="button" data-seg="buy" aria-pressed="'+(shopSeg==='buy')+'">Купить · '+c.buy+'</button><button type="button" data-seg="home" aria-pressed="'+(shopSeg==='home')+'">Дома · '+c.home+'</button></div>';
+  if(shopSeg==='buy'){
+    h+='<p class="legend" style="margin:0 2px">Отметьте продукт, когда купили или если он уже есть дома. Он переедет во вкладку «Дома».</p>';
+    TRIPS.forEach(function(t){var all=0,got=0,body='';
+      t.groups.forEach(function(g,gi){var rows='';g[1].forEach(function(it,j){all++;var id=itemId(t,gi,j);if(DATA.have[id]){got++;return}
+          rows+='<label class="item" for="c-'+id+'"><input type="checkbox" id="c-'+id+'" data-id="'+id+'"><span>'+esc(it)+'</span></label>'});
+        if(rows)body+='<div class="grp"><h4>'+esc(g[0])+'</h4>'+rows+'</div>'});
+      h+='<div class="trip"><div class="th"><h3>'+esc(t.title)+'</h3><p>'+esc(t.sub)+' · есть '+got+' из '+all+'</p><div class="prog"><i style="width:'+(all?got/all*100:0)+'%"></i></div></div>'+
+        (body||'<p class="empty">Всё есть, по этому списку покупать нечего.</p>')+
+        (body?'<div class="tf"><button type="button" class="btn pri" data-copy="'+t.id+'">Скопировать список</button></div><div class="grp" data-out="'+t.id+'" hidden><textarea class="copyout" readonly id="out-'+t.id+'" aria-label="Список для копирования"></textarea></div>':'')+'</div>'});
+  } else {
+    h+='<div class="trip"><div class="th"><h3>Свои продукты</h3><p>Что ещё есть в холодильнике или шкафу</p></div>'+
+      '<form class="addrow" id="addf"><input id="f-name" placeholder="Например, сметана" aria-label="Продукт" autocomplete="off" maxlength="80"><input id="f-qty" placeholder="Сколько" aria-label="Количество" autocomplete="off" maxlength="30"><button class="btn pri" type="submit">Добавить</button></form>'+
+      (DATA.fridge.length?'<div class="grp">'+DATA.fridge.map(function(x){return '<div class="hrow"><span>'+esc(x.name||'')+(x.qty?'<small>'+esc(x.qty)+'</small>':'')+'</span><button type="button" class="out" data-delf="'+esc(x.id)+'">Закончилось</button></div>'}).join('')+'</div>':'<p class="empty">Добавьте то, что уже лежит дома, чтобы не купить лишнего.</p>')+'</div>';
+    var body='';
+    TRIPS.forEach(function(t){t.groups.forEach(function(g,gi){var rows='';g[1].forEach(function(it,j){var id=itemId(t,gi,j);if(!DATA.have[id])return;
+        rows+='<div class="hrow"><span>'+esc(it)+'</span><button type="button" class="out" data-unhave="'+id+'">Закончилось</button></div>'});
+      if(rows)body+='<div class="grp"><h4>'+esc(g[0])+(t.id==='pan'?' · кладовая':'')+'</h4>'+rows+'</div>'})});
+    h+='<div class="trip"><div class="th"><h3>Из списка покупок</h3><p>«Закончилось» вернёт продукт во вкладку «Купить»</p></div>'+(body||'<p class="empty">Пока ничего не отмечено как купленное.</p>')+'</div>';
+  }
+  $('v-shop').innerHTML=h;
+  var n2=$('f-name'),q2=$('f-qty');if(n2){n2.value=keep.n;q2.value=keep.q;if(keep.f==='f-name')n2.focus();if(keep.f==='f-qty')q2.focus()}
+}
+$('v-shop').addEventListener('change',function(e){var id=e.target.dataset&&e.target.dataset.id;if(id&&e.target.checked)API.setHave(id,true)});
+$('v-shop').addEventListener('submit',function(e){e.preventDefault();var n=$('f-name').value.trim(),q=$('f-qty').value.trim();if(!n){$('f-name').focus();return}
+  $('f-name').value='';$('f-qty').value='';API.addFridge(n,q);var n3=$('f-name');if(n3)n3.focus()});
+$('v-shop').addEventListener('click',function(e){
+  var s=e.target.closest('[data-seg]');if(s){shopSeg=s.dataset.seg;store.set('seg',shopSeg);renderShop();return}
+  var u=e.target.closest('[data-unhave]');if(u){API.setHave(u.dataset.unhave,false);return}
+  var d=e.target.closest('[data-delf]');if(d){API.delFridge(d.dataset.delf);return}
+  var c=e.target.closest('[data-copy]');
+  if(c){var t=TRIPS.filter(function(x){return x.id===c.dataset.copy})[0];
+    var txt=t.title+'\n'+t.groups.map(function(g,gi){var left=g[1].filter(function(_,j){return !DATA.have[itemId(t,gi,j)]});return left.length?('\n'+g[0]+':\n'+left.map(function(x){return '• '+x}).join('\n')):''}).join('');
+    var done=function(ok){c.textContent=ok?'Скопировано':'Выделено, скопируйте вручную';setTimeout(function(){c.textContent='Скопировать список'},2000)};
+    var out=document.querySelector('[data-out="'+t.id+'"]');var ta=$('out-'+t.id);ta.value=txt;
+    try{navigator.clipboard.writeText(txt).then(function(){done(true)},function(){out.hidden=false;ta.select();done(false)})}catch(err){out.hidden=false;ta.select();done(false)}
+  }
+});
+function rankHtml(){
+  var list=Object.keys(R).filter(function(k){return !R[k].leftover&&avg(DATA.ratings[k])}).sort(function(a,b){return avg(DATA.ratings[b])-avg(DATA.ratings[a])});
+  return '<div class="prose"><h3>Оценки блюд</h3>'+(list.length?'<div class="rank">'+list.map(function(k){var r=DATA.ratings[k];
+      return '<div class="rr"><span class="mstars">★ '+num(avg(r))+'</span><span>'+esc(R[k].title)+(r.note?'<br><small style="color:var(--muted)">'+esc(r.note)+'</small>':'')+'</span><em>'+(r.him?'он '+r.him:'')+(r.him&&r.her?' · ':'')+(r.her?'она '+r.her:'')+'</em></div>'}).join('')+'</div>'
+    :'<p>Пока нет оценок. Откройте блюдо после ужина и поставьте звёзды — лучшие соберутся здесь, чтобы повторить их на следующей неделе.</p>')+'</div>'}
+
+/* ---------- Нормы ---------- */
+function exportText(){var lines=['Оценки блюд, неделя 10–15 ноября'];
+  Object.keys(R).filter(function(k){return !R[k].leftover}).forEach(function(k){var r=DATA.ratings[k]||{};
+    lines.push('• '+R[k].title+': он '+(r.him||'—')+', она '+(r.her||'—')+(r.note?' — «'+r.note+'»':''))});
+  return lines.join('\n')}
+function exportHtml(){return '<div class="prose"><h3>Оценки для Claude</h3><p>Скопируйте и вставьте в чат с Claude, чтобы он учёл их в меню на следующую неделю.</p>'+
+  '<div class="tf" style="padding:0"><button type="button" class="btn pri" id="exp">Скопировать оценки</button></div><textarea class="copyout" readonly id="exp-out" hidden aria-label="Оценки для копирования"></textarea></div>'}
+function renderNorms(){
+  if(!PRIV){$('v-norms').innerHTML='<div class="dayhead"><h2>Итоги недели</h2><p>Лучшие блюда по вашим оценкам.</p></div>'+rankHtml()+exportHtml();return}
+  $('v-norms').innerHTML=OWN_NORMS.replace('%%RANK%%',rankHtml())+exportHtml();
+}
+$('v-norms').addEventListener('click',function(e){var b=e.target.closest('#exp');if(!b)return;var txt=exportText();var ta=$('exp-out');ta.value=txt;
+  var done=function(ok){b.textContent=ok?'Скопировано':'Выделено, скопируйте вручную';setTimeout(function(){b.textContent='Скопировать оценки'},2000)};
+  var manual=function(){ta.hidden=false;ta.style.height='160px';ta.select();done(false)};
+  try{navigator.clipboard.writeText(txt).then(function(){done(true)},manual)}catch(err){manual()}});
+/* ---------- Навигация ---------- */
+var tab=store.get('tab','menu');
+function showTab(t){tab=t;store.set('tab',t);['menu','shop','norms'].forEach(function(x){$('v-'+x).hidden=x!==t});
+  document.querySelectorAll('nav.tabs button').forEach(function(b){if(b.dataset.tab===t)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+  $('days').style.display=t==='menu'?'':'none';window.scrollTo(0,0)}
+document.querySelector('nav.tabs').addEventListener('click',function(e){var b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab)});
+$('days').addEventListener('click',function(e){var b=e.target.closest('[data-i]');if(!b)return;cur=+b.dataset.i;store.set('day',cur);renderDays();renderMenu();window.scrollTo(0,0)});
+$('v-menu').addEventListener('click',function(e){var b=e.target.closest('[data-r]');if(b)openRecipe(b.dataset.r)});
+$('back').addEventListener('click',closeRecipe);
+$('sheet-body').addEventListener('change',function(e){var t=e.target;if(t.dataset&&t.dataset.note){var cur1=(DATA.ratings[t.dataset.note]||{}).note||'';var v=t.value.trim();if(v!==cur1)API.rate(t.dataset.note,{note:v||null})}});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&openId)closeRecipe()});
+$('wake').addEventListener('change',function(){store.set('wake',this.checked);if(this.checked)wakeOn();else wakeOff()});
+$('sheet-body').addEventListener('click',function(e){
+  var tb=e.target.closest('.timer');if(tb){e.stopPropagation();addTimer(+tb.dataset.t,tb.dataset.l);return}
+  var st=e.target.closest('[data-rate]');if(st&&openId){var k=rid(openId);var cur0=(DATA.ratings[k]||{})[st.dataset.rate];var v=+st.dataset.v;var p={};p[st.dataset.rate]=cur0===v?null:v;API.rate(k,p);return}
+  var li=e.target.closest('li[data-s]');if(!li||!openId)return;var i=+li.dataset.s;var d=store.get('st_'+openId,[]);var p=d.indexOf(i);
+  if(p>-1)d.splice(p,1);else d.push(i);store.set('st_'+openId,d);li.classList.toggle('done');
+});
+
+rerender=function(){renderMenu();renderShop();renderNorms();
+  if(openId){var b=$('rate-box');var ae=document.activeElement;if(b&&!(ae&&ae.dataset&&ae.dataset.note))b.innerHTML=rateBlock(openId)}};
+renderDays();renderMenu();renderShop();renderNorms();showTab(tab);connect();
+})();
+</script>
+</body>
+</html>
