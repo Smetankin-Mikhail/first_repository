@@ -5,7 +5,7 @@ service cloud.firestore {
     // Список всех семей получить нельзя: без ключа из ссылки данные не найти.
     match /families/{fam}/{col}/{doc} {
       function allowed() {
-        return fam.size() >= 24 && col in ['have', 'fridge', 'ratings', 'plan', 'recipes'];
+        return fam.size() >= 24 && col in ['have', 'fridge', 'ratings', 'plan', 'recipes', 'extra'];
       }
       allow get, list, delete: if allowed();
       allow create, update: if allowed()
