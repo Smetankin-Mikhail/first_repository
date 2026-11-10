@@ -606,7 +606,7 @@ function commitPlan(p){
   Object.keys(ex).forEach(function(d){var ref=DB.doc('extra/'+d),v=ex[d];serial('extra/'+d,function(){return v?ref.set({json:JSON.stringify(v),at:Date.now()}):ref.delete()})});
 }
 /* Запрос к Gemini через Firebase AI Logic */
-var AI_MODELS=window.FB_AI_MODELS||['gemini-2.5-flash','gemini-flash-latest','gemini-2.5-flash-lite'];
+var AI_MODELS=window.FB_AI_MODELS||['gemini-3.5-flash','gemini-3.5-flash-lite'];
 var STR={type:'STRING'};
 var AI_SCHEMA={type:'OBJECT',properties:{
   reply:STR,from_home:{type:'BOOLEAN'},
@@ -627,23 +627,27 @@ var AI_SYS=['Ты помощник по домашнему меню на нед�
  '4. Если такого варианта нет — предложи лучший вариант, честно перечисли в buy всё, что нужно купить, с количеством, from_home=false, и в reply прямо скажи: «Нужно зайти в магазин» и коротко что купить.',
  '5. Не выдумывай продукты, которых нет в списке «Есть дома» и которые не базовые: такие продукты всегда идут в buy.',
  'Изменения бывают двух видов:',
- '• swap — поменять местами блюда двух дней (day и day2, приём пищи meal и meal2). Используй, когда просят переставить дни или когда подходящее блюдо уже есть в меню на другой день.',
+ '• swap — поменять местами блюда двух дней (day и day2, приём пищи meal и meal2). ОБЯЗАТЕЛЬНО используй swap, когда просят «поменяй/переставь/перенеси» дни или блюда: новых рецептов тогда не придумывай. Также используй swap, когда подходящее блюдо уже есть в меню на другой день.',
  '• replace — заменить блюдо дня (day, meal) новым рецептом recipe.',
  'Правила:',
  '— Менять можно только сегодняшний и будущие дни. Прошедшие не трогай.',
  '— Меняй как можно меньше: только то, о чём просят.',
  '— Обеды «ей, в ланчбокс» — это остатки ужина накануне, они пересчитываются сами. Не меняй их, меняй ужины.',
- '— Рыбу и морепродукты не предлагай.',
+ '— Рыбу и морепродукты не предлагай никогда.',
+ '— «Без мяса» значит без мяса И без птицы (курица, индейка тоже мясо), без фарша, колбасы, ветчины, бекона и мясного бульона. Можно яйца, молочное, сыр, бобовые, крупы, овощи, грибы.',
+ '— «Сегодня», «завтра», «послезавтра» и дни недели переводи в даты по строке «Даты» в запросе. Если день не назван, имеется в виду день, который пользователь сейчас смотрит.',
+ '— reply должен совпадать с ops: если ops — перестановка, так и напиши; про магазин пиши только если buy не пустой.',
  '— В будни (пн–пт) блюдо должно готовиться за 30–40 минут, в выходные можно дольше.',
  '— Если на следующий день в меню есть её обед в ланчбокс, новый ужин готовится на 3 порции (ужин на двоих и её обед на завтра) и должен хорошо переносить разогрев в микроволновке. Тогда заполни lunchbox: как хранить и собрать её порцию.',
  '— Новый рецепт сбалансированный: белок, гарнир или крупа, овощи. Обязательно добавь свежие овощи или салат в salad.',
  '— Учитывай оценки блюд: блюда с высокими оценками можно повторять, с низкими — избегай похожих.',
  '— ingredients — количества на всё блюдо целиком, в граммах, штуках или ложках. steps — 4–8 понятных шагов, у шагов с ожиданием (варка, запекание, тушение) укажи timer_min.',
- '— recipe.buy — что купить для нового блюда (для replace). buy у самого изменения — что купить для перестановки (для swap). Пустой список, если всё есть.',
+ '— recipe.buy — что купить для нового блюда (для replace). Для swap заполни buy у самого изменения: всё, что нужно купить для переставленных блюд (сверься со списком «Не куплено» и основными продуктами блюд). Если в reply говоришь про магазин, этот же список ОБЯЗАТЕЛЬНО должен быть в buy.',
  '— Не пиши про калории, нормы и кто сколько ест. Не обращайся на «вы», пиши нейтрально.',
  '— Если просьба непонятна или не про меню, верни пустой ops и коротко объясни в reply.'].join('\n');
 function aiContext(q){
-  var L=['Сегодня: '+TODAY+'. Пользователь сейчас смотрит день '+DAYS[cur].d+' ('+DAYS[cur].label+').','','Меню:'];
+  var WD=['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];function dd(k){var t=new Date();t.setDate(t.getDate()+k);return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0')+' ('+WD[t.getDay()]+')'}
+  var L=['Даты: сегодня '+dd(0)+', завтра '+dd(1)+', послезавтра '+dd(2)+'.','Пользователь сейчас смотрит день '+DAYS[cur].d+' ('+DAYS[cur].label+').','','Меню:'];
   DAYS.forEach(function(x,i){L.push(x.d+' ('+x.label+')'+(x.d<TODAY?' — прошёл':'')+':');
     mealsOf(i).forEach(function(m){var r=R[m[2]];L.push('  '+m[0]+' ('+WHO[m[1]]+'): '+(r?r.title+(r.leftover?' — остатки вчерашнего ужина':''):'—'))})});
   var home=DATA.fridge.map(function(f){return f.name+(f.qty?' ('+f.qty+')':'')});
@@ -662,18 +666,22 @@ function aiContext(q){
 function aiCall(q){var cfg=window.FB_CONFIG;if(!cfg||!window.fetch)return Promise.reject({msg:'ИИ работает только на сайте, открытом по ссылке.'});
   var body=JSON.stringify({systemInstruction:{parts:[{text:AI_SYS}]},contents:[{role:'user',parts:[{text:aiContext(q)}]}],
     generationConfig:{responseMimeType:'application/json',responseSchema:AI_SCHEMA,temperature:0.6}});
-  function tryM(i){return fetch('https://firebasevertexai.googleapis.com/v1beta/projects/'+cfg.projectId+'/models/'+AI_MODELS[i]+':generateContent',
-      {method:'POST',headers:{'content-type':'application/json','x-goog-api-key':cfg.apiKey},body:body})
-    .then(function(r){return r.json().catch(function(){return {}}).then(function(j){
+  function tryM(i){var last=i+1>=AI_MODELS.length;var ctl=window.AbortController?new AbortController():null;
+    var tm=ctl&&setTimeout(function(){ctl.abort()},last?60000:45000);
+    return fetch('https://firebasevertexai.googleapis.com/v1beta/projects/'+cfg.projectId+'/models/'+AI_MODELS[i]+':generateContent',
+      {method:'POST',headers:{'content-type':'application/json','x-goog-api-key':cfg.apiKey},body:body,signal:ctl?ctl.signal:undefined})
+    .then(function(r){clearTimeout(tm);return r.json().catch(function(){return {}}).then(function(j){
       if(r.ok)return j;var m=(j.error&&j.error.message)||'';
-      if((r.status===404||/not found|not supported/i.test(m))&&i+1<AI_MODELS.length)return tryM(i+1);
       if(r.status===403&&/not been used|disabled/i.test(m))throw {msg:'ИИ ещё не включён в Firebase (раздел AI Logic). Если только что включили, подождите пару минут.'};
+      if(!last&&(r.status===404||r.status>=500||r.status===429||/not found|no longer available|not supported|high demand/i.test(m)))return tryM(i+1);
       if(r.status===429)throw {msg:'Бесплатный лимит запросов к ИИ пока исчерпан. Попробуйте через минуту или завтра.'};
-      throw {msg:'ИИ не ответил ('+r.status+'). Попробуйте ещё раз.'}})})}
+      if(r.status>=500)throw {msg:'ИИ сейчас перегружен. Попробуйте через минуту.'};
+      throw {msg:'ИИ не ответил ('+r.status+'). Попробуйте ещё раз.'}})},
+    function(e){clearTimeout(tm);if(e&&e.msg)throw e;if(!last)return tryM(i+1);throw {msg:'ИИ слишком долго думает. Попробуйте ещё раз.'}})}
   return tryM(0).then(function(j){var c=((j.candidates||[])[0]||{}).content;var t=c&&c.parts?c.parts.map(function(p){return p.text||''}).join(''):'';
     try{return JSON.parse(t)}catch(e){throw {msg:'ИИ ответил непонятно. Попробуйте переформулировать.'}}})}
 function aiAsk(q,extra){q=(q||'').trim();if(!q||AIST.busy)return;AIST.q=q;AIST.busy=true;AIST.err='';AIST.res=null;renderMenu();
-  aiCall(q+(extra||'')).then(function(o){AIST.busy=false;var p=planFromOps(o.ops);AIST.res={reply:String(o.reply||''),p:p};renderMenu()})
+  aiCall(q+(extra||'')).then(function(o){AIST.busy=false;var p=planFromOps(o.ops);AIST.res={reply:String(o.reply||''),home:o.from_home,p:p};renderMenu()})
    .catch(function(e){AIST.busy=false;AIST.err=(e&&e.msg)||'Нет связи с ИИ. Проверьте интернет.';renderMenu()})}
 var CHIPS=['Приготовить из того, что есть дома','Сегодня не хочу мяса','Поменяй сегодня и завтра','Хочу что-то попроще'];
 function aiPanel(){
@@ -682,6 +690,7 @@ function aiPanel(){
   if(AIST.res){var r=AIST.res;h+='<p class="aire">'+esc(r.reply)+'</p>';
     if(r.p.lines.length){h+='<ul class="aich">'+r.p.lines.map(function(l){return '<li><span>'+esc(l.d)+'</span><s>'+esc(l.from)+'</s><b>'+esc(l.to)+(l.ai?' <em>новое</em>':'')+'</b></li>'}).join('')+'</ul>'+
       (r.p.buy.length?'<div class="aibuy"><b>'+cart+' Нужно в магазин</b><ul>'+r.p.buy.map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ul><small>После «Применить» это появится во вкладке «Продукты» → «Купить».</small></div>'
+        :r.home===false?'<div class="aibuy"><b>'+cart+' Нужно в магазин</b><small>Что купить — в ответе выше. Отметьте нужное во вкладке «Продукты».</small></div>'
         :'<div class="aibuy ok"><b>✓ Всё есть дома</b><small>Ориентир — продукты, отмеченные во вкладке «Продукты» → «Дома».</small></div>')+
       '<div class="aiact"><button type="button" class="btn pri" data-ai="apply">Применить</button><button type="button" class="btn" data-ai="again">Другой вариант</button><button type="button" class="btn" data-ai="cancel">Отмена</button></div>'}
     else h+='<div class="aiact"><button type="button" class="btn" data-ai="cancel">Понятно</button></div>';
