@@ -1,16 +1,24 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Данные семьи лежат в families/<ключ из ссылки>/...
-    // Список всех семей получить нельзя: без ключа из ссылки данные не найти.
+    // Доступ только у Google-аккаунтов из списка. Настоящие почты вписаны в консоли Firebase,
+    // в репозитории вместо них заглушки.
+    function member() {
+      return request.auth != null && request.auth.token.email_verified == true
+        && request.auth.token.email in ['OWNER@gmail.com', 'PARTNER@gmail.com'];
+    }
     match /families/{fam}/{col}/{doc} {
       function allowed() {
-        return fam.size() >= 24 && col in ['have', 'fridge', 'ratings', 'plan', 'recipes', 'extra'];
+        return member() && col in ['have', 'fridge', 'ratings', 'plan', 'recipes', 'extra'];
       }
       allow get, list, delete: if allowed();
       allow create, update: if allowed()
         && request.resource.data.size() <= 6
         && (!('json' in request.resource.data) || request.resource.data.json.size() < 60000);
+    }
+    // Ключ к калориям и нормам: читает и пишет только владелец.
+    match /keys/{email} {
+      allow read, write: if member() && request.auth.token.email == email && email == 'OWNER@gmail.com';
     }
   }
 }

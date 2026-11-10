@@ -9,6 +9,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8D%B2%3C/text%3E%3C/svg%3E">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="config.js"></script>
 <title>Кухня на неделю</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -247,6 +248,18 @@ body{margin:0}
 .scin{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .scin input{width:90px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;padding:6px 10px;background:var(--surface);color:var(--ink)}
 .sce small{color:var(--muted);font-size:12px}
+#gate{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px 16px;overflow:auto}
+body.gated{overflow:hidden}
+.gbox{max-width:380px;width:100%;display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center}
+.gbox h2{margin:0;font-family:var(--display);font-size:22px}
+.gbox p{margin:0;color:var(--muted)}
+.gbox small{color:var(--muted);font-size:12px}
+.gemo{font-size:44px;line-height:1}
+.gbtn{display:inline-flex;align-items:center;gap:10px;justify-content:center;padding:11px 18px;font-size:15px}
+.gbtn svg{background:#fff;border-radius:50%;padding:2px;box-sizing:content-box}
+.gwarn{background:var(--tomato-soft);color:var(--ink)!important;border-radius:12px;padding:10px 12px;font-size:14px;text-align:left}
+.acct{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.acct p{margin:0}
 </style>
 
 </head>
@@ -310,41 +323,88 @@ var API={
     DATA.ratings[rid]=body;rerender();
     if(DB){var ref=DB.doc('ratings/'+rid);serial('ratings/'+rid,function(){return Object.keys(body).length?ref.set(body):ref.delete()})}else saveLocal()}
 };
-/* Ключи из ссылки: #k=семья (общий список), &o=ключ владельца (калории и нормы). Запоминаются на телефоне. */
+/* Вход через Google. Доступ к общим данным даёт только список почт в правилах Firestore.
+   Ключ к калориям и нормам лежит в keys/<почта владельца>, его читает только владелец. */
 function hashKeys(){var h={};(location.hash||'').replace(/^#/,'').split('&').forEach(function(p){var i=p.indexOf('=');if(i>0)h[p.slice(0,i)]=decodeURIComponent(p.slice(i+1))});return h}
 function b64(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
 function loadOwner(key){
-  if(!(window.crypto&&crypto.subtle&&window.fetch))return;
-  var raw;try{raw=b64(key)}catch(e){return}
-  fetch('owner.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(f){
+  if(!(window.crypto&&crypto.subtle&&window.fetch))return Promise.resolve(false);
+  var raw;try{raw=b64(key)}catch(e){return Promise.resolve(false)}
+  return fetch('owner.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(f){
     return crypto.subtle.importKey('raw',raw,'AES-GCM',false,['decrypt']).then(function(k){
       return crypto.subtle.decrypt({name:'AES-GCM',iv:b64(f.iv)},k,b64(f.ct))})
   }).then(function(buf){applyOwner(JSON.parse(new TextDecoder().decode(buf)));rerender();
-    if(openId){var y=$('sheet').scrollTop;openRecipe(openId);$('sheet').scrollTop=y}
-  }).catch(function(){});
+    if(openId){var y=$('sheet').scrollTop;openRecipe(openId);$('sheet').scrollTop=y}return true
+  }).catch(function(){return false});
 }
+var AUTH_USER=null,UNSUBS=[],AUTH_ON=false;
+var gIco='<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>';
+function inApp(){return /Telegram|FBAN|FBAV|Instagram|WhatsApp|VKClient|; wv\)/i.test(navigator.userAgent||'')}
+function gate(state,msg){
+  var g=$('gate');if(!g){g=document.createElement('div');g.id='gate';g.setAttribute('role','dialog');g.setAttribute('aria-modal','true');document.body.appendChild(g)}
+  if(!state){g.hidden=true;document.body.classList.remove('gated');return}
+  g.hidden=false;document.body.classList.add('gated');
+  var h='<div class="gbox"><span class="gemo" aria-hidden="true">🍲</span><h2>Кухня на неделю</h2>';
+  if(state==='denied')h+='<p>Аккаунт <b>'+esc(msg)+'</b> не добавлен для этого сайта. Войдите тем Google-аккаунтом, для которого открыт доступ.</p>'+
+    '<button type="button" class="btn pri gbtn" data-g="out">Войти другим аккаунтом</button>';
+  else{h+='<p>Войдите через Google: тогда список покупок, оценки и изменения меню будут общими на обоих телефонах.</p>'+
+    (inApp()?'<p class="gwarn">Сайт открыт внутри приложения (Telegram, WhatsApp и т. п.), а там Google не даёт войти. Откройте его в браузере: меню ⋮ или «Поделиться» → «Открыть в браузере».</p>':'')+
+    '<button type="button" class="btn pri gbtn" data-g="in">'+gIco+'<span>Войти через Google</span></button>'+(msg?'<p class="aierr">'+esc(msg)+'</p>':'')}
+  h+='<button type="button" class="lnk" data-g="skip">Посмотреть без входа</button><small>Без входа отметки сохраняются только на этом телефоне.</small></div>';
+  g.innerHTML=h}
+function authErr(e){var c=e&&e.code||'';if(c==='auth/popup-closed-by-user'||c==='auth/cancelled-popup-request')return;
+  var m=c==='auth/unauthorized-domain'?'Вход с этого адреса не разрешён в Firebase (Authentication → Settings → Authorized domains).'
+   :c==='auth/operation-not-allowed'?'Вход через Google ещё не включён в Firebase (Authentication → Sign-in method).'
+   :c==='auth/network-request-failed'?'Нет интернета. Проверьте связь и попробуйте ещё раз.'
+   :'Не получилось войти'+(c?' ('+c.replace('auth/','')+')':'')+'. Попробуйте ещё раз или откройте сайт в Chrome/Safari.';
+  gate('login',m)}
+function signIn(){var p=new firebase.auth.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});
+  firebase.auth().signInWithPopup(p).catch(function(e){
+    if(e&&(e.code==='auth/popup-blocked'||e.code==='auth/operation-not-supported-in-this-environment'))return firebase.auth().signInWithRedirect(p).catch(authErr);
+    authErr(e)})}
+function signOut(){store.set('skipauth',0);firebase.auth().signOut().then(function(){location.reload()})}
+document.addEventListener('click',function(e){var b=e.target.closest('[data-g]');if(!b)return;var k=b.dataset.g;
+  if(k==='in')signIn();else if(k==='out')signOut();
+  else if(k==='skip'){store.set('skipauth',1);gate(null)}
+  else if(k==='login'){gate('login')}});
+function accountHtml(){if(!AUTH_ON)return '';
+  return '<div class="prose acct">'+(AUTH_USER?'<p>Вы вошли как <b>'+esc(AUTH_USER.email||'')+'</b></p><button type="button" class="btn" data-g="out">Выйти</button>'
+    :'<p>Вы не вошли: отметки сохраняются только на этом телефоне.</p><button type="button" class="btn pri gbtn" data-g="login">'+gIco+'<span>Войти через Google</span></button>')+'</div>'}
+function stopSync(){UNSUBS.forEach(function(f){try{f()}catch(e){}});UNSUBS=[];DB=null;SYNC='local';SYNCMSG=''}
 function connect(){
-  var h=hashKeys();
-  if(h.k)store.set('fam',h.k);
-  if(h.o){store.set('okey',h.o);try{history.replaceState(null,'',location.pathname+location.search+(h.k?'#k='+h.k:''))}catch(e){}}
-  var fam=store.get('fam',null),okey=store.get('okey',null);
-  if(okey)loadOwner(okey);
-  var cfg=window.FB_CONFIG;
-  if(!fam||fam.length<24||!cfg||!window.firebase)return;
-  var famRef;
-  try{if(!firebase.apps.length)firebase.initializeApp(cfg);famRef=firebase.firestore().collection('families').doc(fam)}catch(e){return}
+  var h=hashKeys();if(h.o)store.set('okey',h.o);
+  if(h.k||h.o){try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}}
+  var cfg=window.FB_CONFIG;if(!cfg||!window.firebase||!firebase.auth)return;
+  try{if(!firebase.apps.length)firebase.initializeApp(cfg)}catch(e){return}
+  AUTH_ON=true;
+  firebase.auth().getRedirectResult().catch(authErr);
+  firebase.auth().onAuthStateChanged(function(u){
+    stopSync();AUTH_USER=u||null;
+    if(!u){if(!store.get('skipauth',0))gate('login');rerender();return}
+    store.set('skipauth',0);gate(null);startSync(u)});
+}
+function startSync(u){
+  var fs=firebase.firestore(),fam=window.FB_FAMILY;if(!fam)return;
+  var famRef=fs.collection('families').doc(fam);
   DB={collection:function(c){return famRef.collection(c)},doc:function(p){var a=p.split('/');return famRef.collection(a[0]).doc(a[1])}};
   var db=DB;SYNC='shared';SYNCMSG='';rerender();
-  var got=0;var t=setTimeout(function(){if(got<6){SYNC='err';SYNCMSG='Общий список пока недоступен. Проверьте интернет.';rerender()}},10000);
+  var got=0;var t=setTimeout(function(){if(got<6&&DB===db){SYNC='err';SYNCMSG='Общий список пока недоступен. Проверьте интернет.';rerender()}},10000);
   function ok(snap){if(!snap.metadata.fromCache){got++;if(got>=6)clearTimeout(t)}if(SYNC!=='err'||got>=6){SYNC='shared';SYNCMSG=''}}
-  function fail(e){clearTimeout(t);dbErr(e)}
+  function fail(e){clearTimeout(t);if(e&&e.code==='permission-denied'){stopSync();gate('denied',u.email);rerender();return}dbErr(e)}
   var opt={includeMetadataChanges:true};
-  db.collection('have').onSnapshot(opt,function(s){var h={};s.docs.forEach(function(d){h[d.id]=1});DATA.have=h;ok(s);saveLocal();rerender()},fail);
-  db.collection('fridge').onSnapshot(opt,function(s){DATA.fridge=s.docs.map(function(d){return Object.assign({id:d.id},d.data())}).sort(function(a,b){return (a.at||0)-(b.at||0)});ok(s);saveLocal();rerender()},fail);
-  db.collection('ratings').onSnapshot(opt,function(s){var r={};s.docs.forEach(function(d){r[d.id]=d.data()});DATA.ratings=r;ok(s);saveLocal();rerender()},fail);
-  db.collection('recipes').onSnapshot(opt,function(s){var a={};s.docs.forEach(function(d){try{a[d.id]=JSON.parse(d.data().json)}catch(e){}});AIR=a;loadAi();ensureRefs();ok(s);store.set('air',AIR);rerender()},fail);
-  db.collection('extra').onSnapshot(opt,function(s){var a={};s.docs.forEach(function(d){try{a[d.id]=JSON.parse(d.data().json)}catch(e){}});EXTRA=a;ok(s);store.set('extra',EXTRA);rerender()},fail);
-  db.collection('plan').onSnapshot(opt,function(s){var a={};s.docs.forEach(function(d){try{a[d.id]=JSON.parse(d.data().meals)}catch(e){}});PLAN=a;ensureRefs();ok(s);store.set('plan',PLAN);rerender()},fail);
+  function on(c,fn){UNSUBS.push(db.collection(c).onSnapshot(opt,function(s){if(DB!==db)return;fn(s);ok(s);rerender()},fail))}
+  on('have',function(s){var h={};s.docs.forEach(function(d){h[d.id]=1});DATA.have=h;saveLocal()});
+  on('fridge',function(s){DATA.fridge=s.docs.map(function(d){return Object.assign({id:d.id},d.data())}).sort(function(a,b){return (a.at||0)-(b.at||0)});saveLocal()});
+  on('ratings',function(s){var r={};s.docs.forEach(function(d){r[d.id]=d.data()});DATA.ratings=r;saveLocal()});
+  on('recipes',function(s){var a={};s.docs.forEach(function(d){try{a[d.id]=JSON.parse(d.data().json)}catch(e){}});AIR=a;loadAi();ensureRefs();store.set('air',AIR)});
+  on('extra',function(s){var a={};s.docs.forEach(function(d){try{a[d.id]=JSON.parse(d.data().json)}catch(e){}});EXTRA=a;store.set('extra',EXTRA)});
+  on('plan',function(s){var a={};s.docs.forEach(function(d){try{a[d.id]=JSON.parse(d.data().meals)}catch(e){}});PLAN=a;ensureRefs();store.set('plan',PLAN)});
+  // Калории и нормы: ключ читается из базы только владельцем. Старый ключ из ссылки один раз переносится в базу.
+  var kref=fs.collection('keys').doc(u.email),old=store.get('okey',null);
+  kref.get().then(function(d){var k=d.exists&&d.data().k;
+    if(k)return loadOwner(k).then(function(){store.set('okey',null)});
+    if(old)return loadOwner(old).then(function(ok){if(ok)return kref.set({k:old}).then(function(){store.set('okey',null)})})
+  }).catch(function(){});
 }
 var rerender=function(){};
 
@@ -539,8 +599,8 @@ function exportText(){var lines=['Оценки блюд, неделя 10–15 н
 function exportHtml(){return '<div class="prose"><h3>Оценки для Claude</h3><p>Скопируйте и вставьте в чат с Claude, чтобы он учёл их в меню на следующую неделю.</p>'+
   '<div class="tf" style="padding:0"><button type="button" class="btn pri" id="exp">Скопировать оценки</button></div><textarea class="copyout" readonly id="exp-out" hidden aria-label="Оценки для копирования"></textarea></div>'}
 function renderNorms(){
-  if(!PRIV){$('v-norms').innerHTML='<div class="dayhead"><h2>Итоги недели</h2><p>Лучшие блюда по вашим оценкам.</p></div>'+rankHtml()+exportHtml();return}
-  $('v-norms').innerHTML=OWN_NORMS.replace('%%RANK%%',rankHtml())+exportHtml();
+  if(!PRIV){$('v-norms').innerHTML='<div class="dayhead"><h2>Итоги недели</h2><p>Лучшие блюда по вашим оценкам.</p></div>'+rankHtml()+exportHtml()+accountHtml();return}
+  $('v-norms').innerHTML=OWN_NORMS.replace('%%RANK%%',rankHtml())+exportHtml()+accountHtml();
 }
 $('v-norms').addEventListener('click',function(e){var b=e.target.closest('#exp');if(!b)return;var txt=exportText();var ta=$('exp-out');ta.value=txt;
   var done=function(ok){b.textContent=ok?'Скопировано':'Выделено, скопируйте вручную';setTimeout(function(){b.textContent='Скопировать оценки'},2000)};

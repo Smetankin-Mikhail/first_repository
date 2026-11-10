@@ -7,3 +7,6 @@ window.FB_CONFIG = {
   messagingSenderId: "969181287277",
   appId: "1:969181287277:web:ed7705c9875eedc54dc064"
 };
+
+/* Общий список семьи. Доступ к нему открывают только Google-аккаунты из правил Firestore, поэтому ключ здесь не секрет. */
+window.FB_FAMILY = "T3dur0akg5fDoyBeirJ450Zc";
