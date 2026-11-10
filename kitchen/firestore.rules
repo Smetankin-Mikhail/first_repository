@@ -16,9 +16,10 @@ service cloud.firestore {
         && request.resource.data.size() <= 6
         && (!('json' in request.resource.data) || request.resource.data.json.size() < 60000);
     }
-    // Ключ к калориям и нормам: читает и пишет только владелец.
-    match /keys/{email} {
-      allow read, write: if member() && request.auth.token.email == email && email == 'OWNER@gmail.com';
+    // Ключ к калориям и нормам: читают оба, записывает только владелец.
+    match /keys/{id} {
+      allow read: if member();
+      allow write: if member() && request.auth.token.email == 'OWNER@gmail.com';
     }
   }
 }
