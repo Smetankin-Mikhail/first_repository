@@ -281,6 +281,31 @@ nav.tabs .wrap{grid-template-columns:repeat(4,1fr)}
 .pitem.bk .lnk{padding:0 12px;font-size:13px}
 .pitem.dis{opacity:.6}
 .mwarn{margin:-6px 0 0;color:var(--tomato);font-size:13px;font-weight:600}
+.vseg{margin-top:-4px}
+.lrow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;background:var(--her-soft);border-radius:12px;padding:10px 12px;font-size:14px}
+.lrow.off{background:var(--sunken)}
+.lmain{display:flex;flex-direction:column;gap:2px;min-width:0}
+.lmain .tag{font-size:11px}
+.lmain b{font-weight:600}
+.lmain small{font-size:12px}
+.s{color:var(--her)}.h{color:var(--him)}
+.lact{display:flex;gap:10px;align-items:center}
+.tog{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 10px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink)}
+.mhint{margin:-6px 2px 0;font-size:13px;color:var(--muted)}
+.mhint.off{color:var(--tomato)}
+.wday{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:4px 12px 10px;display:flex;flex-direction:column;gap:6px}
+.wday.today{border-color:var(--herb);box-shadow:0 0 0 1px var(--herb) inset}
+.wday.past{opacity:.6}
+.wdh{display:flex;justify-content:space-between;align-items:center;border:0;background:none;padding:8px 0 2px;font:inherit;cursor:pointer;color:var(--ink);text-align:left}
+.wdh b{font-family:var(--display);font-size:15px;font-weight:600}
+.wdh span{font-size:13px;color:var(--herb);font-weight:700}
+.witem{display:flex;flex-direction:column;gap:2px;text-align:left;border:0;border-top:1px solid var(--line);background:none;padding:8px 0 2px;font:inherit;color:inherit;cursor:pointer;width:100%}
+.witem .wm{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.witem b{font-size:15px}
+.witem small{font-size:12px;color:var(--muted)}
+.witem em.dis{font-style:normal;font-size:11px;color:var(--tomato)}
+.wl{margin:0;font-size:12px;color:var(--her)}
+.wl.off{color:var(--muted)}
 </style>
 
 </head>
@@ -480,13 +505,14 @@ function mins(s){var m=Math.round(s/60);return m>=60?(Math.floor(m/60)+' ч'+(m%
 function renderDays0(){
   $('days').innerHTML=DAYS.map(function(x,i){return '<button type="button" class="day" aria-pressed="'+(i===cur)+'" data-i="'+i+'" aria-label="'+esc(x.label)+'"><b>'+x.w+'</b><span>'+x.n+'</span>'+(x.d===TODAY?'<i class="today" title="Сегодня"></i>':'')+'</button>'}).join('');
 }
-function renderMenu(){
+function renderDay(){
   var x=dayView(cur);var aiFocus=document.activeElement&&document.activeElement.id==='ai-q';var h='<div class="dayhead"><h2>'+esc(x.label)+'</h2><p>'+(x.d===TODAY?'Сегодня':'Нажмите на блюдо, чтобы открыть рецепт')+'</p></div>';
+  h+=viewSeg();
   if(x.note)h+='<div class="notice">'+info+'<span>'+esc(x.note)+'</span></div>';
   if(x.changed)h+='<div class="notice chg">'+spark+'<span>Меню этого дня изменено.</span><button type="button" class="lnk" data-reset="'+x.d+'">Вернуть как было</button></div>';
   var miss=dayMissing(cur);if(miss.length)h+='<div class="notice buy">'+cart+'<span><b>Нужно купить:</b> '+esc(miss.join(', '))+'</span><button type="button" class="lnk" data-goshop="1">К списку</button></div>';
   if(x.d>=TODAY)h+=aiPanel();
-  x.meals.forEach(function(m){var r=R[m[2]];if(!r)return;
+  x.meals.forEach(function(m){var r=R[m[2]];if(!r||m[1]==='her')return;
     h+='<button type="button" class="meal" data-r="'+m[2]+'"><div class="row"><span class="tag">'+m[0]+'</span><span class="pill '+(m[1]==='her'?'her':'both')+'">'+WHO[m[1]]+'</span></div>'+
       '<h3>'+esc(r.title)+(r.leftover?' <span style="font-weight:500;color:var(--muted)">— вчерашний ужин</span>':'')+'</h3>'+
       '<div class="meta"><span>'+clock.replace('width="15"','width="13"').replace('height="15"','height="13"')+' '+esc(r.time)+'</span>'+
@@ -494,7 +520,7 @@ function renderMenu(){
       (r.salad&&!r.leftover?'<p>+ '+esc(r.salad.t.toLowerCase())+'</p>':'')+
       '<div class="go"><span>'+(r.leftover?'Как собрать и разогреть':'Открыть рецепт')+'</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div></button>';
   });
-  $('v-menu').innerHTML=h;decorateMeals(x);if(aiFocus){var tq=$('ai-q');if(tq&&!tq.disabled){tq.focus();tq.selectionStart=tq.selectionEnd=tq.value.length}}
+  h+=lunchRow(x,cur);$('v-menu').innerHTML=h;decorateMeals(x);if(aiFocus){var tq=$('ai-q');if(tq&&!tq.disabled){tq.focus();tq.selectionStart=tq.selectionEnd=tq.value.length}}
 }
 
 /* ---------- Рецепт ---------- */
@@ -508,8 +534,8 @@ function openRecipe(id){
    (PRIV?'<p class="legend">Калорийность блюда на одну порцию, без салата.</p>':'')+'</div>';
   if(r.ing){
     h+='<section class="blk"><h3>Ингредиенты</h3>'+scaleBanner(id)+'<div class="tbl"><table><thead><tr><th>Продукт</th><th>'+(PRIV?'Всего':'Количество')+'</th>'+(PRIV&&(r.cols||r.ing.some(function(a){return a[2]}))?'<th class="h">Мише</th><th class="s">Поле</th>':'')+'</tr></thead><tbody>'+
-     r.ing.map(function(a,ii){var split=PRIV&&(r.cols||r.ing.some(function(z){return z[2]}));var f=scaleOf(id),bn=baseNum(a[1]);
-       return '<tr><td class="n">'+esc(a[0])+'</td><td class="q">'+(bn?'<button type="button" class="qb" data-sc="'+ii+'">'+esc(sq(a[1],f))+'</button>':esc(a[1]||''))+'</td>'+(split?'<td class="h">'+(a[2]?esc(sq(a[2],f)):'<span class="dash">—</span>')+'</td><td class="s">'+(a[3]?esc(sq(a[3],f)):'<span class="dash">—</span>')+'</td>':'')+'</tr>'+(SCED&&SCED.id===id&&SCED.i===ii&&bn?scaleEditor(id,ii,split?4:2):'')}).join('')+
+     r.ing.map(function(a,ii){var split=PRIV&&(r.cols||r.ing.some(function(z){return z[2]}));var f=scaleOf(id),bn=baseNum(a[1]),two=(scaleObj(id)||{}).i<0;
+       return '<tr><td class="n">'+esc(a[0])+'</td><td class="q">'+(bn?'<button type="button" class="qb" data-sc="'+ii+'">'+esc(sq(a[1],f))+'</button>':esc(a[1]||''))+'</td>'+(split?'<td class="h">'+(a[2]?esc(two?a[2]:sq(a[2],f)):'<span class="dash">—</span>')+'</td><td class="s">'+(a[3]?esc(two?a[3].replace(/^2 × /,''):sq(a[3],f)):'<span class="dash">—</span>')+'</td>':'')+'</tr>'+(SCED&&SCED.id===id&&SCED.i===ii&&bn?scaleEditor(id,ii,split?4:2):'')}).join('')+
      '</tbody></table></div>'+(PRIV&&r.ing.some(function(a){return /2 ×/.test(a[3]||'')})?'<p class="legend">«2 ×» у Поли — порция на ужин и такая же в ланчбокс. Граммовки — в сыром виде.</p>':'<p class="legend">Граммовки — в сыром виде.</p>')+'</section>';
   }
   h+='<section class="blk"><h3>'+(r.leftover?'Как собрать':'Приготовление')+' · отмечайте шаги касанием</h3><ol class="steps">'+
@@ -1052,12 +1078,13 @@ function pickPanel(x,m){var h='<div class="pick">';
   return h+'<button type="button" class="lnk" data-pclose="1">Закрыть</button></div>'}
 function decorateMeals(x){if(x.d<TODAY)return;
   var cards=document.querySelectorAll('#v-menu .meal[data-r]');
-  Array.prototype.forEach.call(cards,function(c,k){var m=x.meals.filter(function(q){return R[q[2]]})[k];if(!m)return;var r=R[m[2]];
+  Array.prototype.forEach.call(cards,function(c,k){var m=x.meals.filter(function(q){return R[q[2]]&&q[1]!=='her'})[k];if(!m)return;var r=R[m[2]];
     if(r.leftover||m[1]==='her')return;
     var bar=document.createElement('div');bar.className='mbar';
     if(disliked(m[2])){var w=document.createElement('p');w.className='mwarn';w.textContent='Это блюдо не понравилось — замените его кнопкой ниже.';c.insertAdjacentElement('afterend',w);c=w}
     bar.innerHTML='<button type="button" class="mb" data-pk="swap|'+m[0]+'">⇄ Другой день</button><button type="button" class="mb" data-pk="book|'+m[0]+'">↻ Заменить блюдо</button>';
     c.insertAdjacentElement('afterend',bar);
+    if(m[0]==='Ужин'){var hn=dinnerHint(cur);if(hn){var hd=document.createElement('div');hd.innerHTML=hn;bar.insertAdjacentElement('beforebegin',hd.firstChild)}}
     if(PK&&PK.d===x.d&&PK.meal===m[0]){var p=document.createElement('div');p.innerHTML=pickPanel(x,m);bar.insertAdjacentElement('afterend',p.firstChild)}})}
 $('v-menu').addEventListener('click',function(e){var t;
   if((t=e.target.closest('[data-pk]'))){var a=t.dataset.pk.split('|');var d=DAYS[cur].d;
@@ -1093,8 +1120,8 @@ function setScale(id,o){var k='scale-'+id;if(o)EXTRA[k]=o;else delete EXTRA[k];s
   if(DB){var ref=DB.doc('extra/'+k);serial('extra/'+k,function(){return o?ref.set({json:JSON.stringify(o),at:Date.now()}):ref.delete()})}}
 function scaleBanner(id){SC_SIG=scSig(id);var s=scaleObj(id),r=R[id];
   if(!s)return '<p class="legend scl0">Купили другое количество? Нажмите на цифру у продукта, и остальное пересчитается.</p>';
-  var a=r.ing[s.i]||['',''];
-  return '<div class="scl">'+scaleIco+'<span>Пересчитано под <b>'+esc(a[0])+' — '+esc(s.v)+'</b> (×'+numTxt(s.f)+'). В шагах количества указаны для исходного рецепта.</span><button type="button" class="lnk" data-scr="1">Сбросить</button></div>'}
+  var a=r.ing[s.i]||null;
+  return '<div class="scl">'+scaleIco+'<span>Пересчитано '+(a?'под <b>'+esc(a[0])+' — '+esc(s.v)+'</b>':'на <b>'+esc(s.v)+'</b>')+' (×'+numTxt(s.f)+'). В шагах количества указаны для исходного рецепта.</span><button type="button" class="lnk" data-scr="1">Сбросить</button></div>'}
 function scaleEditor(id,i,cols){var a=R[id].ing[i],b=baseNum(a[1]),s=scaleObj(id);
   var cur=s&&s.i===i?s.v.replace(/[^\d.,]/g,''):numTxt(b.v);
   return '<tr class="scrow"><td colspan="'+cols+'"><form class="sce" data-sce="'+i+'"><label for="sce-v">Сколько есть на самом деле?</label>'+
@@ -1112,7 +1139,7 @@ $('sheet-body').addEventListener('submit',function(e){var f=e.target.closest('[d
   if(!(v>0)){$('sce-v').focus();return}
   var k=v/b.v;if(k<.1||k>10){alert('Слишком большая разница с рецептом. Проверьте число: по рецепту '+a[1]+'.');return}
   SCED=null;if(Math.abs(k-1)<.001)setScale(openId,null);else setScale(openId,{i:i,f:Math.round(k*1000)/1000,v:numTxt(v)+(b.unit?' '+b.unit:'')});reopen()});
-function kc(id,v){var k=R[id]&&R[id].src||id,f=scaleOf(k);return f===1?v:Math.round(v*f/10)*10}
+function kc(id,v){var k=R[id]&&R[id].src||id,s=scaleObj(k);return !s||s.i<0?v:Math.round(v*s.f/10)*10}
 
 /* ---------- Калории порции, «не понравилось», вкладка «Книга», свои рецепты ---------- */
 /* Калорийность одной порции (без салата) и число порций в рецепте; оценка приблизительная */
@@ -1123,13 +1150,17 @@ var BOOK_KCAL={shakshuka:[530],zucchinibake:[580],salmon:[750],codtomato:[470],t
 var HER_DINNER=600; // её ужин при норме 1800 ккал
 Object.keys(BOOK_KCAL).forEach(function(k){var r=R['b-'+k];if(!r)return;var v=BOOK_KCAL[k];r.kcalp=v[0];
   if(v[1]&&v[1]!==3)r.serves=v[1]+' порций: хватит на два приёма пищи'});
-function portionInfo(id){var r=R[id];if(!r)return null;var s=r.src?R[r.src]:r;if(!s||!s.kcalp)return null;var f=scaleOf(r.src||id),p=Math.round(s.kcalp*f/10)*10;
-  var her=p>HER_DINNER+50?Math.round(HER_DINNER/p*4)/4:1;return {p:p,her:her,herK:Math.round(p*her/10)*10}}
-function fracTxt(x){return x>=1?'порция':x>=.75?'¾ порции':x>=.66?'⅔ порции':x>=.5?'½ порции':'⅓ порции'}
+function portionInfo(id){var r=R[id];if(!r)return null;var s=r.src?R[r.src]:r;if(!s||!s.kcalp)return null;
+  var so=scaleObj(r.src||id),f=so&&so.i>=0?so.f:1,p=Math.round(s.kcalp*f/10)*10;
+  var her=Math.min(1,Math.max(.5,Math.floor(560/p*4)/4)),three=/^3 порц/.test(s.serves||'');
+  var him=three?Math.max(1,3-2*her):1.25;
+  return {p:p,her:her,herK:Math.round(p*her/10)*10,him:him,himK:Math.round(p*him/10)*10}}
+function fracTxt(x){var w=Math.floor(x),q=Math.round((x-w)*4),fr=['','¼','½','¾'][q]||'';if(q===4){w++;fr=''}
+  if(x===1)return 'порция';return (w?String(w):'')+fr+' порции'}
 function portionMeta(id){var r=R[id];if(!PRIV||(r&&r.kcal&&r.kcal[0]))return '';var pi=portionInfo(id);if(!pi)return '';
-  return '<span>порция <i>≈ '+pi.p+'</i> ккал</span>'+(pi.her<1?'<span class="s">Поле '+fracTxt(pi.her)+' <i>≈ '+pi.herK+'</i></span>':'')}
+  return '<span class="h">Мише <i>≈ '+pi.himK+'</i> ккал</span><span class="s">Поле <i>≈ '+pi.herK+'</i> ккал</span>'}
 function portionFacts(id){var r=R[id];if(!PRIV||(r&&r.kcal&&r.kcal[0]))return '';var pi=portionInfo(id);if(!pi)return '';
-  return '<div class="fact"><b>Порция</b><span>≈ '+pi.p+'</span></div>'+(pi.her<1?'<div class="fact s"><b>Поле</b><span>'+fracTxt(pi.her).replace(' порции','')+' ≈ '+pi.herK+'</span></div>':'')}
+  return '<div class="fact h"><b>Мише · '+fracTxt(pi.him)+'</b><span>≈ '+pi.himK+'</span></div><div class="fact s"><b>Поле · '+fracTxt(pi.her)+'</b><span>≈ '+pi.herK+'</span></div>'}
 function disliked(k){var r=DATA.ratings[k];return !!(r&&(r.him===1||r.her===1||(avg(r)&&avg(r)<=2)))}
 
 /* Вкладка «Книга» */
@@ -1251,12 +1282,53 @@ function autoTrips(){var out=[];
     var span=k===0?3:4,end=addD(x.d,span-1);if(end<TODAY||x.d>addD(TODAY,7))return;
     var agg={},order=[],dishes=[];
     for(var j=i;j<DAYS.length&&DAYS[j].d<=end;j++)mealsOf(j).forEach(function(m){var r=R[m[2]];if(!r||r.leftover||!r.ing)return;dishes.push(r.short||r.title);
-      var f=scaleOf(m[2]);r.ing.forEach(function(a){if(AUTO_STAPLE.test(a[0])||/по вкусу/.test(a[1]||''))return;var key=a[0].toLowerCase();
+      var f=scaleOf(m[2]);if(m[0]==='Ужин'&&f===1&&DAYS[j+1]&&herMeal(DAYS[j+1])&&noLunch(DAYS[j+1].d)&&/^3 порц/.test(r.serves||''))f=2/3;r.ing.forEach(function(a){if(AUTO_STAPLE.test(a[0])||/по вкусу/.test(a[1]||''))return;var key=a[0].toLowerCase();
         if(!agg[key]){agg[key]={n:a[0],q:[]};order.push(key)}agg[key].q.push(sq(a[1],f))})});
     if(!order.length)return;
     out.push({id:'w'+x.d,title:'Закупка — '+x.label.toLowerCase(),sub:'На '+(k===0?'понедельник — среду':'четверг — воскресенье')+': '+dishes.join(', '),
       groups:[['Продукты',order.map(function(key){var a=agg[key];return a.n+' — '+sumQ(a.q.filter(Boolean))})]]})});
   return out}
+
+/* ---------- Главный экран: неделя или день; обед Поли — маленькая строка ---------- */
+var MV=store.get('mview','week');
+function setExtra(k,v){if(v)EXTRA[k]=v;else delete EXTRA[k];store.set('extra',EXTRA);rerender();
+  if(DB){var ref=DB.doc('extra/'+k);serial('extra/'+k,function(){return v?ref.set({json:JSON.stringify(v),at:Date.now()}):ref.delete()})}}
+function noLunch(d){return !!EXTRA['nolunch-'+d]}
+function herMeal(x){return x.meals.filter(function(m){return m[1]==='her'})[0]}
+function nextDay(i){return DAYS[i+1]||null}
+/* Калории «Мише / Поле» для любого блюда */
+function kcalPair(id){var r=R[id];if(!r)return null;
+  if(r.kcal&&r.kcal[0])return {m:kc(id,r.kcal[0]),p:kc(id,r.kcal[1])};
+  var pi=portionInfo(id);if(!pi)return null;return {m:pi.himK,p:pi.herK}}
+function kcalLine(id){if(!PRIV)return '';var k=kcalPair(id);if(!k)return '';
+  return '<span class="h">Мише ≈ '+k.m+'</span> <span class="s">Поле ≈ '+k.p+(k.frac?' ('+k.frac+')':'')+'</span>'}
+function viewSeg(){return '<div class="seg vseg" role="group" aria-label="Вид"><button type="button" data-mv="week" aria-pressed="'+(MV==='week')+'">Неделя</button><button type="button" data-mv="day" aria-pressed="'+(MV==='day')+'">День</button></div>'}
+function lunchRow(x,i){var m=herMeal(x);if(!m)return '';var r=R[m[2]],skip=noLunch(x.d);
+  var src=r&&r.src&&R[r.src];var kk=PRIV&&!skip&&src?kcalPair(r.src):null;
+  return '<div class="lrow'+(skip?' off':'')+'"><div class="lmain"><span class="tag">Обед Поли</span><b>'+(skip?'В столовой':'Остатки: '+esc(src?src.title:(r?r.title:'—')))+'</b>'+
+    (kk?'<small class="s">≈ '+kk.p+' ккал</small>':'')+'</div><div class="lact">'+(!skip&&r?'<button type="button" class="lnk" data-r="'+m[2]+'">Как разогреть</button>':'')+
+    '<button type="button" class="tog" data-nolunch="'+x.d+'">'+(skip?'Возьму обед':'Не беру обед')+'</button></div></div>'}
+function dinnerHint(i){var x=DAYS[i],nx=nextDay(i);if(!nx||x.d<TODAY)return '';var hm=herMeal(nx);if(!hm)return '';
+  var dn=mealsOf(i).filter(function(m){return m[0]==='Ужин'})[0];if(!dn||!R[dn[2]])return '';var r=R[dn[2]];
+  if(!noLunch(nx.d))return '<p class="mhint">+ порция Поле на обед завтра — уже учтена в рецепте</p>';
+  var s=scaleObj(dn[2]);var done=s&&s.i<0;
+  return '<p class="mhint off">Завтра Поля обедает в столовой — нужно 2 порции вместо 3. '+(r.ing?(done?'<b>Рецепт пересчитан.</b>':'<button type="button" class="lnk" data-sc23="'+dn[2]+'">Пересчитать на 2 порции</button>'):'')+'</p>'}
+function renderWeek(){var ws=weekIdx(cur),idx=[];DAYS.forEach(function(x,i){if(weekStart(x.d)===ws)idx.push(i)});
+  var h='<div class="dayhead"><h2>Меню на неделю</h2><p>'+esc(document.querySelector('.brand .wk')?document.querySelector('.brand .wk').textContent:'')+' · нажмите на блюдо, чтобы открыть рецепт</p></div>'+viewSeg();
+  idx.forEach(function(i){var x=dayView(i),past=x.d<TODAY;
+    h+='<div class="wday'+(x.d===TODAY?' today':'')+(past?' past':'')+'"><button type="button" class="wdh" data-day="'+i+'"><b>'+esc(x.label)+'</b><span>'+(x.d===TODAY?'Сегодня':'')+' ›</span></button>';
+    x.meals.forEach(function(m){if(m[1]==='her')return;var r=R[m[2]];if(!r)return;
+      h+='<button type="button" class="witem" data-r="'+m[2]+'"><span class="wm">'+m[0]+'</span><b>'+esc(r.title)+(disliked(m[2])?' <em class="dis">не понравилось</em>':'')+'</b><small>'+esc(r.time.split(',')[0])+(PRIV?' · '+kcalLine(m[2]):'')+'</small></button>'});
+    var hm=herMeal(x);if(hm){var rr=R[hm[2]];h+='<p class="wl'+(noLunch(x.d)?' off':'')+'">Обед Поли: '+(noLunch(x.d)?'в столовой':'остатки «'+esc(rr&&rr.src&&R[rr.src]?R[rr.src].short||R[rr.src].title:'ужина')+'»')+'</p>'}
+    h+='</div>'});
+  $('v-menu').innerHTML=h}
+function renderMenu(){if(MV==='week')renderWeek();else renderDay()}
+document.addEventListener('click',function(e){var t;
+  if((t=e.target.closest('[data-mv]'))){MV=t.dataset.mv;store.set('mview',MV);renderMenu();window.scrollTo(0,0);return}
+  if((t=e.target.closest('[data-day]'))){cur=+t.dataset.day;store.set('day',cur);MV='day';store.set('mview',MV);renderDays();renderMenu();window.scrollTo(0,0);return}
+  if((t=e.target.closest('[data-nolunch]'))){var d=t.dataset.nolunch;setExtra('nolunch-'+d,noLunch(d)?null:{v:1});return}
+  if((t=e.target.closest('[data-sc23]'))){setScale(t.dataset.sc23,{i:-1,f:.7,v:'2 порции'});return}
+  if(e.target.closest('#days [data-i]')&&MV!=='day'){MV='day';store.set('mview',MV)}},true);
 
 /* ---------- Навигация ---------- */
 var tab=store.get('tab','menu');
