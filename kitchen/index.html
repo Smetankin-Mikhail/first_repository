@@ -306,6 +306,8 @@ nav.tabs .wrap{grid-template-columns:repeat(4,1fr)}
 .witem em.dis{font-style:normal;font-size:11px;color:var(--tomato)}
 .wl{margin:0;font-size:12px;color:var(--her)}
 .wl.off{color:var(--muted)}
+.tog.sm{padding:3px 9px;font-size:12px;margin-left:4px;vertical-align:1px}
+.mhint .tog.sm{margin-left:0}
 </style>
 
 </head>
@@ -1039,15 +1041,47 @@ var BOOK=[
  ['lasagna','meat',75,'Лазанья болоньезе (на выходные)',
   [['Листы лазаньи','250 г'],['Фарш говяжий','500 г'],['Томаты в собственном соку','800 г'],['Молоко','700 мл'],['Сливочное масло','50 г'],['Мука','50 г'],['Моцарелла или твёрдый сыр','200 г']],
   [['Болоньезе','Приготовьте соус: обжарьте лук, фарш, добавьте томаты и тушите.',25],['Бешамель','Растопите масло, вмешайте муку, влейте молоко и варите, помешивая, до загустения. Посолите.',8],['Сборка','Духовка 190 °C. Слоями: соус, листы, бешамель, сыр — 3–4 слоя, сверху сыр.'],['Запекание','Запекайте до золотистой корочки, дайте постоять 10 минут.',35]],
-  ['Зелёный салат','Листья салата, руккола, огурец, бальзамик','Смешайте.'],'Хранится 3 дня, разогревается порциями.']
+  ['Зелёный салат','Листья салата, руккола, огурец, бальзамик','Смешайте.'],'Хранится 3 дня, разогревается порциями.'],
+ ['caesar','salad',25,'Цезарь с курицей',
+  [['Куриное филе','400 г'],['Салат романо или айсберг','1 кочан'],['Черри','200 г'],['Пармезан','50 г'],['Батон для сухариков','3 ломтика'],['Греческий йогурт или майонез','4 ст. л.'],['Горчица, лимонный сок, чеснок','по 1 ч. л.']],
+  [['Курица','Посолите филе и обжарьте по 5–6 минут с каждой стороны, дайте постоять и нарежьте.',12],['Сухарики','Нарежьте батон кубиками и подсушите на сухой сковороде.',5],['Соус','Смешайте йогурт, горчицу, лимон, тёртый чеснок и половину тёртого пармезана.'],['Сборка','Порвите листья, добавьте черри, курицу, сухарики, полейте соусом и посыпьте пармезаном.']],
+  ['Сам по себе','Это полноценный ужин','—'],'Соус и сухарики — отдельно, смешать перед едой.'],
+ ['greek','salad',10,'Греческий салат',
+  [['Огурцы','2 шт.'],['Помидоры','3 шт.'],['Болгарский перец','1 шт.'],['Красный лук','½ шт.'],['Фета','120 г'],['Маслины','80 г'],['Оливковое масло, орегано','2 ст. л. / ½ ч. л.']],
+  [['Овощи','Нарежьте овощи крупно, лук — тонкими кольцами.'],['Сборка','Добавьте маслины и фету кубиками, полейте маслом и посыпьте орегано. Солите осторожно: фета солёная.']],
+  ['Хлеб','Лаваш или цельнозерновой хлеб','По желанию.'],'Заправку — отдельно.'],
+ ['warmbeef','salad',25,'Тёплый салат с говядиной и овощами',
+  [['Говядина (вырезка или стейк)','400 г'],['Микс салатных листьев','150 г'],['Болгарский перец','1 шт.'],['Огурец','1 шт.'],['Черри','150 г'],['Соевый соус','3 ст. л.'],['Мёд','1 ч. л.'],['Кунжут','1 ст. л.']],
+  [['Мясо','Нарежьте мясо тонкими полосками и быстро обжарьте на сильном огне, в конце добавьте соевый соус и мёд.',5],['Овощи','Нарежьте перец, огурец, черри пополам.'],['Сборка','Выложите листья и овощи, сверху тёплое мясо с соусом, посыпьте кунжутом.']],
+  ['Сам по себе','Это полноценный ужин','—'],'Мясо и листья — в разные контейнеры.'],
+ ['tunaegg','salad',15,'Салат с тунцом, яйцом и фасолью',
+  [['Тунец консервированный','1 банка'],['Яйца','3 шт.'],['Красная фасоль консервированная','1 банка'],['Огурцы','2 шт.'],['Кукуруза','½ банки'],['Греческий йогурт','3 ст. л.'],['Зелень','½ пучка']],
+  [['Яйца','Сварите яйца вкрутую и остудите.',10],['Сборка','Нарежьте огурцы и яйца, смешайте с тунцом, промытой фасолью, кукурузой и зеленью, заправьте йогуртом, посолите.']],
+  ['Хлеб','Цельнозерновой хлеб','По желанию.'],'Отлично подходит для ланчбокса.'],
+ ['vinegret','salad',15,'Винегрет',
+  [['Варёная свёкла','2 шт.'],['Варёный картофель','2 шт.'],['Варёная морковь','1 шт.'],['Квашеная капуста','150 г'],['Солёные огурцы','2 шт.'],['Зелёный горошек','½ банки'],['Растительное масло','2 ст. л.']],
+  [['Нарезка','Нарежьте всё мелким кубиком. Свёклу заправьте маслом отдельно, чтобы не окрасила остальное.'],['Сборка','Смешайте всё, добавьте капусту и горошек, посолите.']],
+  ['Гарнир','Хорош к котлетам, рыбе и супам','—'],'Хранится 2 дня.'],
+ ['olivie','salad',30,'Оливье с курицей',
+  [['Куриное филе','300 г'],['Картофель','3 шт.'],['Морковь','1 шт.'],['Яйца','3 шт.'],['Солёные огурцы','3 шт.'],['Зелёный горошек','1 банка'],['Майонез или йогурт','4 ст. л.']],
+  [['Варка','Отварите курицу, картофель, морковь и яйца.',25],['Нарезка','Остудите и нарежьте всё кубиком, добавьте горошек.'],['Заправка','Заправьте перед подачей, посолите.']],
+  ['Сам по себе','Сытный салат','—'],'Заправку — отдельно.'],
+ ['coleslaw','salad',10,'Коул-слоу',
+  [['Капуста белокочанная','300 г'],['Краснокочанная капуста (по желанию)','150 г'],['Морковь','1 шт.'],['Греческий йогурт','3 ст. л.'],['Горчица, лимонный сок','по 1 ч. л.']],
+  [['Нарезка','Тонко нашинкуйте капусту, натрите морковь, слегка помните с солью.'],['Заправка','Смешайте йогурт, горчицу и лимон, заправьте салат.']],
+  ['Гарнир','Хорош к бургерам, курице, отбивным','—'],'Хранится до завтра.'],
+ ['beetfeta','salad',10,'Свёкла с фетой и грецкими орехами',
+  [['Варёная свёкла','3 шт.'],['Фета','100 г'],['Грецкие орехи','40 г'],['Руккола','50 г'],['Оливковое масло, бальзамик','2 ст. л. / 1 ч. л.']],
+  [['Сборка','Нарежьте свёклу кубиком, выложите на рукколу, раскрошите фету, посыпьте подсушенными орехами и полейте заправкой.']],
+  ['Гарнир','К мясу и рыбе','—'],'Рукколу — отдельно.']
 ];
-var TAGS={veg:'Без мяса',fish:'Рыба',bird:'Птица',meat:'Мясо'};
+var TAGS={veg:'Без мяса',fish:'Рыба',bird:'Птица',meat:'Мясо',salad:'Салаты'};
 var STAPLE=/^(соль|перец горошком|лавровый|сахар|растительное|оливковое|сливочное масло|мука|крахмал|чеснок|лук$|томатная паста|уксус|паприка|зира|орегано|сушёный|специи|копчёная|имбирь|вода)/i;
 BOOK.forEach(function(b){var id='b-'+b[0];
   R[id]={book:true,tag:b[1],mins:b[2],short:b[3].toLowerCase(),title:b[3],time:b[2]+' мин',serves:'3 порции: ужин на двоих и порция на завтра',kcal:[null,null],cols:false,
     ing:b[4].map(function(a){return [a[0],a[1],'','']}),
     steps:b[5].map(function(s){return s[2]?[s[0],s[1],s[2]*60]:[s[0],s[1]]}),
-    salad:{t:b[6][0],k:'',i:b[6][1].split(', '),s:b[6][2]},lunchbox:b[7]};
+    salad:b[6][2]==='—'?null:{t:b[6][0],k:'',i:b[6][1].split(', '),s:b[6][2]},lunchbox:b[7]};
   mkLeftover(id)});
 function bookMissing(id){var home=homeNames();return R[id].ing.filter(function(a){return !STAPLE.test(a[0])&&!atHome(a[0],home)}).map(function(a){return a[0]+' — '+a[1]})}
 
@@ -1062,7 +1096,7 @@ function pickPanel(x,m){var h='<div class="pick">';
       :'<p class="legend">Нет других дней, с которыми можно поменять.</p>';
   }else{
     var inPlan=planIds();
-    var list=Object.keys(R).filter(function(k){var r=R[k];return (r.book||(r.ai&&!r.leftover))&&!inPlan[k]&&!disliked(k)&&(PK.f==='all'||r.tag===PK.f)&&(!PK.quick||(r.mins||99)<=30)})
+    var list=Object.keys(R).filter(function(k){var r=R[k];return (r.book||(r.ai&&!r.leftover))&&!inPlan[k]&&!disliked(k)&&(PK.f==='all'?r.tag!=='salad'||/^(caesar|warmbeef|olivie|tunaegg)$/.test(k.slice(2)):r.tag===PK.f)&&(!PK.quick||(r.mins||99)<=30)})
       .map(function(k){var miss=R[k].book?bookMissing(k):(R[k].buy||[]);return {k:k,miss:miss,score:miss.length*10-avg(DATA.ratings[k])}})
       .sort(function(a,b){return a.score-b.score}).slice(0,8);
     h+='<b>Чем заменить «'+esc(R[m[2]].title)+'»?</b><div class="chips">'+[['all','Все']].concat(Object.keys(TAGS).map(function(t){return [t,TAGS[t]]})).map(function(c){
@@ -1146,7 +1180,8 @@ function kc(id,v){var k=R[id]&&R[id].src||id,s=scaleObj(k);return !s||s.i<0?v:Ma
 var BOOK_KCAL={shakshuka:[530],zucchinibake:[580],salmon:[750],codtomato:[470],teriyaki:[650],chickcutlet:[780],porkstir:[710],meatballs:[880],
  lentilsoup:[550],syrniki:[710],mushrisotto:[640],draniki:[610],fishcakes:[600],mackerel:[630],shrimppasta:[730],ukha:[450],tunapasta:[600],hakecheese:[550],
  chickplov:[640,5],chickcurry:[660],chickcream:[820],turkeysoba:[590],chicksoup:[450,4],shawarma:[740],ovenchicken:[910],kupecheskaya:[640],chickstew:[640],
- bolognese:[680,4],meatplov:[610,6],stroganoff:[830],goulash:[640,4],stuffedpep:[750],lazygolub:[770],burgers:[650,4],porkchops:[700],lasagna:[640,6]};
+ bolognese:[680,4],meatplov:[610,6],stroganoff:[830],goulash:[640,4],stuffedpep:[750],lazygolub:[770],burgers:[650,4],porkchops:[700],lasagna:[640,6],
+ caesar:[450],greek:[250],warmbeef:[420],tunaegg:[380],vinegret:[200],olivie:[380],coleslaw:[180],beetfeta:[280]};
 var HER_DINNER=600; // её ужин при норме 1800 ккал
 Object.keys(BOOK_KCAL).forEach(function(k){var r=R['b-'+k];if(!r)return;var v=BOOK_KCAL[k];r.kcalp=v[0];
   if(v[1]&&v[1]!==3)r.serves=v[1]+' порций: хватит на два приёма пищи'});
@@ -1172,7 +1207,7 @@ function renderBook(){var el=$('v-book');if(!el)return;var q=BK.q.trim().toLower
   var focus=document.activeElement&&document.activeElement.id;
   var h='<div class="dayhead"><h2>Книга рецептов</h2><p>'+bookList().length+' блюд. Нажмите, чтобы открыть рецепт.</p></div>'+
    '<input id="bk-q" class="bkq" type="search" placeholder="Поиск: название или продукт, например «курица»" value="'+esc(BK.q)+'">'+
-   '<div class="chips">'+[['all','Все'],['veg','Без мяса'],['fish','Рыба'],['bird','Птица'],['meat','Мясо'],['mine','Наши']].map(function(c){return '<button type="button" class="chip'+(BK.f===c[0]?' on':'')+'" data-bkf="'+c[0]+'">'+c[1]+'</button>'}).join('')+
+   '<div class="chips">'+[['all','Все'],['veg','Без мяса'],['fish','Рыба'],['bird','Птица'],['meat','Мясо'],['salad','Салаты'],['mine','Наши']].map(function(c){return '<button type="button" class="chip'+(BK.f===c[0]?' on':'')+'" data-bkf="'+c[0]+'">'+c[1]+'</button>'}).join('')+
    '<button type="button" class="chip'+(BK.quick?' on':'')+'" data-bkq="1">До 30 минут</button></div>'+addPanel();
   h+=list.length?'<div class="plist">'+list.map(function(k){var r=R[k],pi=portionInfo(k),d=disliked(k);
     return '<div class="pitem bk'+(d?' dis':'')+'"><button type="button" class="bkopen" data-r="'+k+'"><span>'+(r.tag?TAGS[r.tag]+' · ':'')+esc(r.time)+(PRIV&&pi?' · ≈ '+pi.p+' ккал':'')+ratingText(k)+'</span><b>'+esc(r.title)+'</b>'+
@@ -1192,7 +1227,7 @@ function addPanel(){var A=BK.add;
   if(A.busy)h+='<p class="legend">ИИ оформляет рецепт, это 10–30 секунд.</p>';
   if(A.err)h+='<p class="aierr">'+esc(A.err)+'</p>';
   return h+'</div>'}
-var REC_SCHEMA={type:'OBJECT',properties:{title:STR,tag:{type:'STRING',enum:['veg','fish','bird','meat']},mins:{type:'NUMBER'},time:STR,serves:STR,kcal_per_portion:{type:'NUMBER'},
+var REC_SCHEMA={type:'OBJECT',properties:{title:STR,tag:{type:'STRING',enum:['veg','fish','bird','meat','salad']},mins:{type:'NUMBER'},time:STR,serves:STR,kcal_per_portion:{type:'NUMBER'},
   ingredients:{type:'ARRAY',items:{type:'OBJECT',properties:{name:STR,qty:STR},required:['name','qty']}},
   steps:{type:'ARRAY',items:{type:'OBJECT',properties:{title:STR,text:STR,timer_min:{type:'NUMBER'}},required:['title','text']}},
   salad:{type:'OBJECT',properties:{title:STR,items:{type:'ARRAY',items:STR},how:STR}},lunchbox:STR},
@@ -1200,7 +1235,7 @@ var REC_SCHEMA={type:'OBJECT',properties:{title:STR,tag:{type:'STRING',enum:['ve
 var REC_SYS=['Ты оформляешь домашний рецепт для книги рецептов пары. Отвечай только по-русски, JSON по схеме.',
  'Пользователь пишет название блюда или вставляет текст рецепта. Если это текст рецепта — сохрани его суть и количества, только упорядочи. Если только название — составь проверенный классический рецепт.',
  'Рецепт на 3 порции (ужин на двоих и порция на завтра), если блюдо не требует большего объёма; serves — например «3 порции: ужин на двоих и порция на завтра».',
- 'tag: veg — без мяса и рыбы, fish — рыба и морепродукты, bird — курица/индейка, meat — свинина/говядина/баранина/фарш.',
+ 'tag: salad — если это салат; veg — без мяса и рыбы, fish — рыба и морепродукты, bird — курица/индейка, meat — свинина/говядина/баранина/фарш.',
  'mins — общее время в минутах; time — коротко, например «35 мин» или «1 ч, из них 20 мин активно».',
  'kcal_per_portion — приблизительная калорийность одной порции без салата, целое число.',
  'ingredients — на всё блюдо, с количествами в граммах, штуках, ложках. steps — 3–7 понятных шагов, у шагов с ожиданием укажи timer_min.',
@@ -1305,21 +1340,22 @@ function kcalLine(id){if(!PRIV)return '';var k=kcalPair(id);if(!k)return '';
 function viewSeg(){return '<div class="seg vseg" role="group" aria-label="Вид"><button type="button" data-mv="week" aria-pressed="'+(MV==='week')+'">Неделя</button><button type="button" data-mv="day" aria-pressed="'+(MV==='day')+'">День</button></div>'}
 function lunchRow(x,i){var m=herMeal(x);if(!m)return '';var r=R[m[2]],skip=noLunch(x.d);
   var src=r&&r.src&&R[r.src];var kk=PRIV&&!skip&&src?kcalPair(r.src):null;
-  return '<div class="lrow'+(skip?' off':'')+'"><div class="lmain"><span class="tag">Обед Поли</span><b>'+(skip?'В столовой':'Остатки: '+esc(src?src.title:(r?r.title:'—')))+'</b>'+
+  return '<div class="lrow'+(skip?' off':'')+'"><div class="lmain"><span class="tag">Обед Поли</span><b>'+(skip?'В столовой':'Ланчбокс: '+esc(src?src.title:(r?r.title:'—')))+'</b>'+
     (kk?'<small class="s">≈ '+kk.p+' ккал</small>':'')+'</div><div class="lact">'+(!skip&&r?'<button type="button" class="lnk" data-r="'+m[2]+'">Как разогреть</button>':'')+
     '<button type="button" class="tog" data-nolunch="'+x.d+'">'+(skip?'Возьму обед':'Не беру обед')+'</button></div></div>'}
 function dinnerHint(i){var x=DAYS[i],nx=nextDay(i);if(!nx||x.d<TODAY)return '';var hm=herMeal(nx);if(!hm)return '';
   var dn=mealsOf(i).filter(function(m){return m[0]==='Ужин'})[0];if(!dn||!R[dn[2]])return '';var r=R[dn[2]];
-  if(!noLunch(nx.d))return '<p class="mhint">+ порция Поле на обед завтра — уже учтена в рецепте</p>';
+  var tg='<button type="button" class="tog sm" data-nolunch="'+nx.d+'">'+(noLunch(nx.d)?'Возьму обед завтра':'Не беру обед завтра')+'</button>';
+  if(!noLunch(nx.d))return '<p class="mhint">+ порция Поле на обед завтра (ланчбокс) уже учтена в рецепте. '+tg+'</p>';
   var s=scaleObj(dn[2]);var done=s&&s.i<0;
-  return '<p class="mhint off">Завтра Поля обедает в столовой — нужно 2 порции вместо 3. '+(r.ing?(done?'<b>Рецепт пересчитан.</b>':'<button type="button" class="lnk" data-sc23="'+dn[2]+'">Пересчитать на 2 порции</button>'):'')+'</p>'}
+  return '<p class="mhint off">Завтра Поля обедает в столовой — нужно 2 порции вместо 3. '+tg+' '+(r.ing?(done?'<b>Рецепт пересчитан.</b>':'<button type="button" class="lnk" data-sc23="'+dn[2]+'">Пересчитать на 2 порции</button>'):'')+'</p>'}
 function renderWeek(){var ws=weekIdx(cur),idx=[];DAYS.forEach(function(x,i){if(weekStart(x.d)===ws)idx.push(i)});
   var h='<div class="dayhead"><h2>Меню на неделю</h2><p>'+esc(document.querySelector('.brand .wk')?document.querySelector('.brand .wk').textContent:'')+' · нажмите на блюдо, чтобы открыть рецепт</p></div>'+viewSeg();
   idx.forEach(function(i){var x=dayView(i),past=x.d<TODAY;
     h+='<div class="wday'+(x.d===TODAY?' today':'')+(past?' past':'')+'"><button type="button" class="wdh" data-day="'+i+'"><b>'+esc(x.label)+'</b><span>'+(x.d===TODAY?'Сегодня':'')+' ›</span></button>';
     x.meals.forEach(function(m){if(m[1]==='her')return;var r=R[m[2]];if(!r)return;
       h+='<button type="button" class="witem" data-r="'+m[2]+'"><span class="wm">'+m[0]+'</span><b>'+esc(r.title)+(disliked(m[2])?' <em class="dis">не понравилось</em>':'')+'</b><small>'+esc(r.time.split(',')[0])+(PRIV?' · '+kcalLine(m[2]):'')+'</small></button>'});
-    var hm=herMeal(x);if(hm){var rr=R[hm[2]];h+='<p class="wl'+(noLunch(x.d)?' off':'')+'">Обед Поли: '+(noLunch(x.d)?'в столовой':'остатки «'+esc(rr&&rr.src&&R[rr.src]?R[rr.src].short||R[rr.src].title:'ужина')+'»')+'</p>'}
+    var hm=herMeal(x);if(hm){var rr=R[hm[2]];h+='<p class="wl'+(noLunch(x.d)?' off':'')+'">Обед Поли: '+(noLunch(x.d)?'в столовой':'ланчбокс — «'+esc(rr&&rr.src&&R[rr.src]?R[rr.src].short||R[rr.src].title:'ужина')+'»')+' <button type="button" class="tog sm" data-nolunch="'+x.d+'">'+(noLunch(x.d)?'Возьму обед':'Не беру')+'</button></p>'}
     h+='</div>'});
   $('v-menu').innerHTML=h}
 function renderMenu(){if(MV==='week')renderWeek();else renderDay()}
