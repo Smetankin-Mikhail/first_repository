@@ -273,6 +273,14 @@ button.pitem{cursor:pointer}
 .chip.on{background:var(--herb);border-color:var(--herb);color:var(--surface)}
 .wkarr{border:0;background:none;font-size:26px;line-height:1;color:var(--herb);cursor:pointer;padding:0}
 .wkarr:disabled{color:var(--line);cursor:default}
+nav.tabs .wrap{grid-template-columns:repeat(4,1fr)}
+.bkq{width:100%;font:inherit;font-size:15px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface);color:var(--ink)}
+.pitem.bk{padding:0;flex-direction:row;align-items:center}
+.bkopen{flex:1;display:flex;flex-direction:column;gap:3px;text-align:left;border:0;background:none;padding:10px 12px;font:inherit;color:inherit;cursor:pointer}
+.bkopen span{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.pitem.bk .lnk{padding:0 12px;font-size:13px}
+.pitem.dis{opacity:.6}
+.mwarn{margin:-6px 0 0;color:var(--tomato);font-size:13px;font-weight:600}
 </style>
 
 </head>
@@ -287,6 +295,7 @@ button.pitem{cursor:pointer}
 <main class="wrap">
   <div class="view" id="v-menu"></div>
   <div class="view" id="v-shop" hidden></div>
+  <div class="view" id="v-book" hidden></div>
   <div class="view" id="v-norms" hidden></div>
 </main>
 
@@ -303,6 +312,7 @@ button.pitem{cursor:pointer}
 <nav class="tabs" aria-label="Разделы"><div class="wrap">
   <button type="button" data-tab="menu" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Меню</button>
   <button type="button" data-tab="shop"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>Продукты</button>
+  <button type="button" data-tab="book"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M8 7h7M8 11h5"/></svg>Книга</button>
   <button type="button" data-tab="norms"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 12l6-6"/><circle cx="12" cy="12" r="1.5"/></svg>Итоги</button>
 </div></nav>
 
@@ -346,7 +356,8 @@ function loadOwner(key){
   return fetch('owner.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(f){
     return crypto.subtle.importKey('raw',raw,'AES-GCM',false,['decrypt']).then(function(k){
       return crypto.subtle.decrypt({name:'AES-GCM',iv:b64(f.iv)},k,b64(f.ct))})
-  }).then(function(buf){applyOwner(JSON.parse(new TextDecoder().decode(buf)));rerender();
+  }).then(function(buf){applyOwner(JSON.parse(new TextDecoder().decode(buf)));
+    Object.keys(R).forEach(function(k){var r=R[k];if(r.leftover&&R[r.src]&&R[r.src].kcal&&!r.kcal[1])r.kcal=[null,R[r.src].kcal[1]]});rerender();
     if(openId){var y=$('sheet').scrollTop;openRecipe(openId);$('sheet').scrollTop=y}return true
   }).catch(function(){return false});
 }
@@ -479,7 +490,7 @@ function renderMenu(){
     h+='<button type="button" class="meal" data-r="'+m[2]+'"><div class="row"><span class="tag">'+m[0]+'</span><span class="pill '+(m[1]==='her'?'her':'both')+'">'+WHO[m[1]]+'</span></div>'+
       '<h3>'+esc(r.title)+(r.leftover?' <span style="font-weight:500;color:var(--muted)">— вчерашний ужин</span>':'')+'</h3>'+
       '<div class="meta"><span>'+clock.replace('width="15"','width="13"').replace('height="15"','height="13"')+' '+esc(r.time)+'</span>'+
-      (PRIV?((r.kcal[0]?'<span class="h">ему <i>≈ '+kc(m[2],r.kcal[0])+'</i> ккал</span>':'')+(r.kcal[1]?'<span class="s">ей <i>≈ '+kc(m[2],r.kcal[1])+'</i> ккал</span>':'')):'')+ratingText(m[2])+'</div>'+
+      (PRIV?(portionMeta(m[2])+(r.kcal[0]?'<span class="h">ему <i>≈ '+kc(m[2],r.kcal[0])+'</i> ккал</span>':'')+(r.kcal[1]?'<span class="s">ей <i>≈ '+kc(m[2],r.kcal[1])+'</i> ккал</span>':'')):'')+ratingText(m[2])+'</div>'+
       (r.salad&&!r.leftover?'<p>+ '+esc(r.salad.t.toLowerCase())+'</p>':'')+
       '<div class="go"><span>'+(r.leftover?'Как собрать и разогреть':'Открыть рецепт')+'</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div></button>';
   });
@@ -491,7 +502,7 @@ var openId=null;
 function openRecipe(id){
   openId=id;var r=R[id];var done=store.get('st_'+id,[]);
   var h='<div class="rh"><span class="tag">'+esc(r.serves)+'</span><h2 id="r-title">'+esc(r.title)+'</h2>'+
-   '<div class="facts"><div class="fact"><b>Время</b><span>'+esc(r.time.split(',')[0])+'</span></div>'+
+   '<div class="facts"><div class="fact"><b>Время</b><span>'+esc(r.time.split(',')[0])+'</span></div>'+portionFacts(id)+
    (PRIV?((r.kcal[0]?'<div class="fact h"><b>Ему</b><span>≈ '+kc(id,r.kcal[0])+'</span></div>':'')+
    (r.kcal[1]?'<div class="fact s"><b>Ей</b><span>≈ '+kc(id,r.kcal[1])+'</span></div>':'')):'')+'</div>'+
    (PRIV?'<p class="legend">Калорийность блюда на одну порцию, без салата.</p>':'')+'</div>';
@@ -635,6 +646,8 @@ function addAiRecipe(id,o){
    steps:(o.steps||[]).map(function(s){var t=Math.round((+s.timer_min||0)*60);return t>0?[String(s.title||''),String(s.text||''),t]:[String(s.title||''),String(s.text||'')]}),
    lunchbox:o.lunchbox||'',buy:o.buy||[],
    salad:o.salad&&o.salad.title?{t:o.salad.title,k:'',i:o.salad.items||[],s:o.salad.how||''}:null};
+  var R0=R[id];if(o.kcal_per_portion)R0.kcalp=Math.round(+o.kcal_per_portion);
+  if(o.user){R0.book=true;R0.user=true;R0.tag=o.tag;R0.mins=+o.mins||null}
   delete R['l-'+id];mkLeftover(id)}
 function loadAi(){Object.keys(AIR).forEach(function(id){try{addAiRecipe(id,AIR[id])}catch(e){}})}
 function ensureRefs(){DAYS.forEach(function(x,i){mealsOf(i).forEach(function(m){if(!R[m[2]]&&/^l-/.test(m[2]))mkLeftover(m[2].slice(2))})})}
@@ -698,7 +711,7 @@ var AI_SCHEMA={type:'OBJECT',properties:{
   reply:STR,from_home:{type:'BOOLEAN'},
   ops:{type:'ARRAY',items:{type:'OBJECT',properties:{
     op:{type:'STRING',enum:['swap','replace']},buy:{type:'ARRAY',items:STR},day:STR,meal:{type:'STRING',enum:['Обед','Ужин']},day2:STR,meal2:{type:'STRING',enum:['Обед','Ужин']},
-    recipe:{type:'OBJECT',properties:{title:STR,time:STR,serves:STR,
+    recipe:{type:'OBJECT',properties:{title:STR,time:STR,serves:STR,kcal_per_portion:{type:'NUMBER'},
       ingredients:{type:'ARRAY',items:{type:'OBJECT',properties:{name:STR,qty:STR},required:['name','qty']}},
       steps:{type:'ARRAY',items:{type:'OBJECT',properties:{title:STR,text:STR,timer_min:{type:'NUMBER'}},required:['title','text']}},
       salad:{type:'OBJECT',properties:{title:STR,items:{type:'ARRAY',items:STR},how:STR}},
@@ -725,7 +738,7 @@ var AI_SYS=['Ты помощник по домашнему меню на нед�
  '— reply должен совпадать с ops: если ops — перестановка, так и напиши; про магазин пиши только если buy не пустой.',
  '— В будни (пн–пт) блюдо должно готовиться за 30–40 минут, в выходные можно дольше.',
  '— Если на следующий день в меню есть её обед в ланчбокс, новый ужин готовится на 3 порции (ужин на двоих и её обед на завтра) и должен хорошо переносить разогрев в микроволновке. Тогда заполни lunchbox: как хранить и собрать её порцию.',
- '— Новый рецепт сбалансированный: белок, гарнир или крупа, овощи. Обязательно добавь свежие овощи или салат в salad.',
+ '— Новый рецепт сбалансированный: белок, гарнир или крупа, овощи. Обязательно добавь свежие овощи или салат в salad. Порция ужина — примерно 600–750 ккал, укажи kcal_per_portion.',
  '— Учитывай оценки блюд: блюда с высокими оценками можно повторять, с низкими — избегай похожих.',
  '— ingredients — количества на всё блюдо целиком, в граммах, штуках или ложках. steps — 4–8 понятных шагов, у шагов с ожиданием (варка, запекание, тушение) укажи timer_min.',
  '— recipe.buy — что купить для нового блюда (для replace). Для swap заполни buy у самого изменения: всё, что нужно купить для переставленных блюд (сверься со списком «Не куплено» и основными продуктами блюд). Если в reply говоришь про магазин, этот же список ОБЯЗАТЕЛЬНО должен быть в buy.',
@@ -747,11 +760,13 @@ function aiContext(q){
   var rt=Object.keys(DATA.ratings).filter(function(k){return R[k]}).map(function(k){var r=DATA.ratings[k];
     return R[k].title+': он '+(r.him||'—')+', она '+(r.her||'—')+(r.note?' («'+r.note+'»)':'')});
   L.push('Оценки: '+(rt.length?rt.join('; '):'пока нет'));
+  var bad=Object.keys(R).filter(function(k){return R[k]&&!R[k].leftover&&typeof disliked==='function'&&disliked(k)}).map(function(k){return R[k].title});
+  if(bad.length)L.push('Не понравилось, не предлагай ни сами блюда, ни похожие: '+bad.join('; '));
   L.push('','Просьба: '+q);
   return L.join('\n')}
-function aiCall(q){var cfg=window.FB_CONFIG;if(!cfg||!window.fetch)return Promise.reject({msg:'ИИ работает только на сайте, открытом по ссылке.'});
-  var body=JSON.stringify({systemInstruction:{parts:[{text:AI_SYS}]},contents:[{role:'user',parts:[{text:aiContext(q)}]}],
-    generationConfig:{responseMimeType:'application/json',responseSchema:AI_SCHEMA,temperature:0.6}});
+function aiCall(q,o){o=o||{};var cfg=window.FB_CONFIG;if(!cfg||!window.fetch)return Promise.reject({msg:'ИИ работает только на сайте, открытом по ссылке.'});
+  var body=JSON.stringify({systemInstruction:{parts:[{text:o.sys||AI_SYS}]},contents:[{role:'user',parts:[{text:o.text||aiContext(q)}]}],
+    generationConfig:{responseMimeType:'application/json',responseSchema:o.schema||AI_SCHEMA,temperature:0.6}});
   var tries=0;function again(i){tries++;return new Promise(function(z){setTimeout(z,2500*tries)}).then(function(){return tryM(i)})}
   function tryM(i){var last=i+1>=AI_MODELS.length;var ctl=window.AbortController?new AbortController():null;
     var tm=ctl&&setTimeout(function(){ctl.abort()},last?60000:45000);
@@ -1021,7 +1036,7 @@ function pickPanel(x,m){var h='<div class="pick">';
       :'<p class="legend">Нет других дней, с которыми можно поменять.</p>';
   }else{
     var inPlan=planIds();
-    var list=Object.keys(R).filter(function(k){var r=R[k];return (r.book||(r.ai&&!r.leftover))&&!inPlan[k]&&(PK.f==='all'||r.tag===PK.f)&&(!PK.quick||(r.mins||99)<=30)})
+    var list=Object.keys(R).filter(function(k){var r=R[k];return (r.book||(r.ai&&!r.leftover))&&!inPlan[k]&&!disliked(k)&&(PK.f==='all'||r.tag===PK.f)&&(!PK.quick||(r.mins||99)<=30)})
       .map(function(k){var miss=R[k].book?bookMissing(k):(R[k].buy||[]);return {k:k,miss:miss,score:miss.length*10-avg(DATA.ratings[k])}})
       .sort(function(a,b){return a.score-b.score}).slice(0,8);
     h+='<b>Чем заменить «'+esc(R[m[2]].title)+'»?</b><div class="chips">'+[['all','Все']].concat(Object.keys(TAGS).map(function(t){return [t,TAGS[t]]})).map(function(c){
@@ -1040,6 +1055,7 @@ function decorateMeals(x){if(x.d<TODAY)return;
   Array.prototype.forEach.call(cards,function(c,k){var m=x.meals.filter(function(q){return R[q[2]]})[k];if(!m)return;var r=R[m[2]];
     if(r.leftover||m[1]==='her')return;
     var bar=document.createElement('div');bar.className='mbar';
+    if(disliked(m[2])){var w=document.createElement('p');w.className='mwarn';w.textContent='Это блюдо не понравилось — замените его кнопкой ниже.';c.insertAdjacentElement('afterend',w);c=w}
     bar.innerHTML='<button type="button" class="mb" data-pk="swap|'+m[0]+'">⇄ Другой день</button><button type="button" class="mb" data-pk="book|'+m[0]+'">↻ Заменить блюдо</button>';
     c.insertAdjacentElement('afterend',bar);
     if(PK&&PK.d===x.d&&PK.meal===m[0]){var p=document.createElement('div');p.innerHTML=pickPanel(x,m);bar.insertAdjacentElement('afterend',p.firstChild)}})}
@@ -1097,6 +1113,88 @@ $('sheet-body').addEventListener('submit',function(e){var f=e.target.closest('[d
   var k=v/b.v;if(k<.1||k>10){alert('Слишком большая разница с рецептом. Проверьте число: по рецепту '+a[1]+'.');return}
   SCED=null;if(Math.abs(k-1)<.001)setScale(openId,null);else setScale(openId,{i:i,f:Math.round(k*1000)/1000,v:numTxt(v)+(b.unit?' '+b.unit:'')});reopen()});
 function kc(id,v){var k=R[id]&&R[id].src||id,f=scaleOf(k);return f===1?v:Math.round(v*f/10)*10}
+
+/* ---------- Калории порции, «не понравилось», вкладка «Книга», свои рецепты ---------- */
+/* Калорийность одной порции (без салата) и число порций в рецепте; оценка приблизительная */
+var BOOK_KCAL={shakshuka:[530],zucchinibake:[580],salmon:[750],codtomato:[470],teriyaki:[650],chickcutlet:[780],porkstir:[710],meatballs:[880],
+ lentilsoup:[550],syrniki:[710],mushrisotto:[640],draniki:[610],fishcakes:[600],mackerel:[630],shrimppasta:[730],ukha:[450],tunapasta:[600],hakecheese:[550],
+ chickplov:[640,5],chickcurry:[660],chickcream:[820],turkeysoba:[590],chicksoup:[450,4],shawarma:[740],ovenchicken:[910],kupecheskaya:[640],chickstew:[640],
+ bolognese:[680,4],meatplov:[610,6],stroganoff:[830],goulash:[640,4],stuffedpep:[750],lazygolub:[770],burgers:[650,4],porkchops:[700],lasagna:[640,6]};
+var HER_DINNER=600; // её ужин при норме 1800 ккал
+Object.keys(BOOK_KCAL).forEach(function(k){var r=R['b-'+k];if(!r)return;var v=BOOK_KCAL[k];r.kcalp=v[0];
+  if(v[1]&&v[1]!==3)r.serves=v[1]+' порций: хватит на два приёма пищи'});
+function portionInfo(id){var r=R[id];if(!r)return null;var s=r.src?R[r.src]:r;if(!s||!s.kcalp)return null;var f=scaleOf(r.src||id),p=Math.round(s.kcalp*f/10)*10;
+  var her=p>HER_DINNER+50?Math.round(HER_DINNER/p*4)/4:1;return {p:p,her:her,herK:Math.round(p*her/10)*10}}
+function fracTxt(x){return x>=1?'порция':x>=.75?'¾ порции':x>=.66?'⅔ порции':x>=.5?'½ порции':'⅓ порции'}
+function portionMeta(id){var r=R[id];if(!PRIV||(r&&r.kcal&&r.kcal[0]))return '';var pi=portionInfo(id);if(!pi)return '';
+  return '<span>порция <i>≈ '+pi.p+'</i> ккал</span>'+(pi.her<1?'<span class="s">ей '+fracTxt(pi.her)+' <i>≈ '+pi.herK+'</i></span>':'')}
+function portionFacts(id){var r=R[id];if(!PRIV||(r&&r.kcal&&r.kcal[0]))return '';var pi=portionInfo(id);if(!pi)return '';
+  return '<div class="fact"><b>Порция</b><span>≈ '+pi.p+'</span></div>'+(pi.her<1?'<div class="fact s"><b>Ей</b><span>'+fracTxt(pi.her).replace(' порции','')+' ≈ '+pi.herK+'</span></div>':'')}
+function disliked(k){var r=DATA.ratings[k];return !!(r&&(r.him===1||r.her===1||(avg(r)&&avg(r)<=2)))}
+
+/* Вкладка «Книга» */
+var BK={f:'all',q:'',quick:false,add:null}; // add: {busy, text, res, err}
+function bookList(){return Object.keys(R).filter(function(k){var r=R[k];return r.book||(!r.leftover&&!r.ai&&!/^b-|^l-/.test(k)&&r.ing)})}
+function renderBook(){var el=$('v-book');if(!el)return;var q=BK.q.trim().toLowerCase();
+  var list=bookList().filter(function(k){var r=R[k];return (BK.f==='all'||r.tag===BK.f||(BK.f==='mine'&&r.user))&&(!BK.quick||(r.mins||parseInt(r.time)||99)<=30)&&(!q||r.title.toLowerCase().indexOf(q)>-1||r.ing.some(function(a){return a[0].toLowerCase().indexOf(q)>-1}))})
+    .sort(function(a,b){return (disliked(a)-disliked(b))||(avg(DATA.ratings[b])-avg(DATA.ratings[a]))||R[a].title.localeCompare(R[b].title,'ru')});
+  var focus=document.activeElement&&document.activeElement.id;
+  var h='<div class="dayhead"><h2>Книга рецептов</h2><p>'+bookList().length+' блюд. Нажмите, чтобы открыть рецепт.</p></div>'+
+   '<input id="bk-q" class="bkq" type="search" placeholder="Поиск: название или продукт, например «курица»" value="'+esc(BK.q)+'">'+
+   '<div class="chips">'+[['all','Все'],['veg','Без мяса'],['fish','Рыба'],['bird','Птица'],['meat','Мясо'],['mine','Наши']].map(function(c){return '<button type="button" class="chip'+(BK.f===c[0]?' on':'')+'" data-bkf="'+c[0]+'">'+c[1]+'</button>'}).join('')+
+   '<button type="button" class="chip'+(BK.quick?' on':'')+'" data-bkq="1">До 30 минут</button></div>'+addPanel();
+  h+=list.length?'<div class="plist">'+list.map(function(k){var r=R[k],pi=portionInfo(k),d=disliked(k);
+    return '<div class="pitem bk'+(d?' dis':'')+'"><button type="button" class="bkopen" data-r="'+k+'"><span>'+(r.tag?TAGS[r.tag]+' · ':'')+esc(r.time)+(PRIV&&pi?' · ≈ '+pi.p+' ккал':'')+ratingText(k)+'</span><b>'+esc(r.title)+'</b>'+
+      (d?'<small class="miss">Не понравилось — больше не предлагается</small>':'')+'</button>'+(r.user?'<button type="button" class="lnk" data-bkdel="'+k+'">Удалить</button>':'')+'</div>'}).join('')+'</div>'
+    :'<p class="legend">Ничего не нашлось.</p>';
+  el.innerHTML=h;
+  if(focus==='bk-q'){var i=$('bk-q');i.focus();i.selectionStart=i.selectionEnd=i.value.length}
+  if(focus==='bk-add'){var t=$('bk-add');if(t){t.focus();t.selectionStart=t.selectionEnd=t.value.length}}}
+function addPanel(){var A=BK.add;
+  if(!A)return '<button type="button" class="aibtn" data-bka="open">'+spark+'<span>Добавить свой рецепт</span><small>напишите название или вставьте текст — ИИ оформит</small></button>';
+  var h='<div class="aip"><div class="aih">'+spark+'<b>Новый рецепт</b><button type="button" class="x" data-bka="close" aria-label="Закрыть">×</button></div>';
+  if(A.res){var o=A.res;h+='<div class="pitem"><span>'+(TAGS[o.tag]||'')+' · '+esc(o.time||'')+(PRIV&&o.kcal_per_portion?' · ≈ '+Math.round(o.kcal_per_portion)+' ккал порция':'')+'</span><b>'+esc(o.title)+'</b>'+
+      '<small>'+(o.ingredients||[]).length+' продуктов, '+(o.steps||[]).length+' шагов'+(o.salad&&o.salad.title?', салат: '+esc(o.salad.title):'')+'</small></div>'+
+      '<div class="aiact"><button type="button" class="btn pri" data-bka="save">Сохранить в книгу</button><button type="button" class="btn" data-bka="again">Другой вариант</button><button type="button" class="btn" data-bka="cancel">Изменить запрос</button></div>';return h+'</div>'}
+  h+='<form class="aif" data-bkform="1"><textarea id="bk-add" rows="3" maxlength="4000" placeholder="Например: «Мамины голубцы» или вставьте рецепт целиком"'+(A.busy?' disabled':'')+'>'+esc(A.text||'')+'</textarea>'+
+    '<button type="submit" class="btn pri"'+(A.busy?' disabled':'')+'>'+(A.busy?'Оформляю…':'Оформить рецепт')+'</button></form>';
+  if(A.busy)h+='<p class="legend">ИИ оформляет рецепт, это 10–30 секунд.</p>';
+  if(A.err)h+='<p class="aierr">'+esc(A.err)+'</p>';
+  return h+'</div>'}
+var REC_SCHEMA={type:'OBJECT',properties:{title:STR,tag:{type:'STRING',enum:['veg','fish','bird','meat']},mins:{type:'NUMBER'},time:STR,serves:STR,kcal_per_portion:{type:'NUMBER'},
+  ingredients:{type:'ARRAY',items:{type:'OBJECT',properties:{name:STR,qty:STR},required:['name','qty']}},
+  steps:{type:'ARRAY',items:{type:'OBJECT',properties:{title:STR,text:STR,timer_min:{type:'NUMBER'}},required:['title','text']}},
+  salad:{type:'OBJECT',properties:{title:STR,items:{type:'ARRAY',items:STR},how:STR}},lunchbox:STR},
+  required:['title','tag','mins','time','serves','kcal_per_portion','ingredients','steps']};
+var REC_SYS=['Ты оформляешь домашний рецепт для книги рецептов пары. Отвечай только по-русски, JSON по схеме.',
+ 'Пользователь пишет название блюда или вставляет текст рецепта. Если это текст рецепта — сохрани его суть и количества, только упорядочи. Если только название — составь проверенный классический рецепт.',
+ 'Рецепт на 3 порции (ужин на двоих и порция на завтра), если блюдо не требует большего объёма; serves — например «3 порции: ужин на двоих и порция на завтра».',
+ 'tag: veg — без мяса и рыбы, fish — рыба и морепродукты, bird — курица/индейка, meat — свинина/говядина/баранина/фарш.',
+ 'mins — общее время в минутах; time — коротко, например «35 мин» или «1 ч, из них 20 мин активно».',
+ 'kcal_per_portion — приблизительная калорийность одной порции без салата, целое число.',
+ 'ingredients — на всё блюдо, с количествами в граммах, штуках, ложках. steps — 3–7 понятных шагов, у шагов с ожиданием укажи timer_min.',
+ 'salad — свежие овощи или салат к блюду. lunchbox — как хранить и разогреть порцию на завтра.'].join('\n');
+function bookAsk(extra){var A=BK.add;var t=(A.text||'').trim();if(!t||A.busy)return;A.busy=true;A.err='';A.res=null;renderBook();
+  aiCall('',{sys:REC_SYS,schema:REC_SCHEMA,text:t+(extra||'')}).then(function(o){A.busy=false;
+      if(!o||!o.title||!o.steps||!o.steps.length){A.err='ИИ не смог оформить рецепт. Попробуйте написать подробнее.'}else A.res=o;renderBook()})
+    .catch(function(e){A.busy=false;A.err=(e&&e.msg)||'Нет связи с ИИ.';renderBook()})}
+function saveUserRecipe(o){var id='u'+Date.now().toString(36);o.user=true;o.buy=[];AIR[id]=o;addAiRecipe(id,o);store.set('air',AIR);rerender();
+  if(DB){var ref=DB.doc('recipes/'+id);serial('recipes/'+id,function(){return ref.set({json:JSON.stringify(o),at:Date.now()})})}return id}
+function delUserRecipe(id){if(!confirm('Удалить «'+R[id].title+'» из книги?'))return;delete AIR[id];delete R[id];delete R['l-'+id];store.set('air',AIR);rerender();
+  if(DB){var ref=DB.doc('recipes/'+id);serial('recipes/'+id,function(){return ref.delete()})}}
+document.addEventListener('click',function(e){if(!e.target.closest('#v-book'))return;var t;
+  if((t=e.target.closest('[data-bkf]'))){BK.f=t.dataset.bkf;renderBook();return}
+  if(e.target.closest('[data-bkq]')){BK.quick=!BK.quick;renderBook();return}
+  if((t=e.target.closest('[data-bkdel]'))){delUserRecipe(t.dataset.bkdel);return}
+  if((t=e.target.closest('[data-r]'))){openRecipe(t.dataset.r);return}
+  if((t=e.target.closest('[data-bka]'))){var k=t.dataset.bka;
+    if(k==='open'){BK.add={text:''};renderBook();var x=$('bk-add');if(x)x.focus()}
+    else if(k==='close'){BK.add=null;renderBook()}
+    else if(k==='cancel'){BK.add.res=null;renderBook()}
+    else if(k==='again'){BK.add.res=null;bookAsk(' (сделай другой вариант)')}
+    else if(k==='save'){var id=saveUserRecipe(BK.add.res);BK.add=null;BK.f='mine';renderBook();openRecipe(id)}}});
+document.addEventListener('submit',function(e){if(!e.target.closest('[data-bkform]'))return;e.preventDefault();BK.add.text=$('bk-add').value;bookAsk()});
+document.addEventListener('input',function(e){if(e.target.id==='bk-q'){BK.q=e.target.value;renderBook()}else if(e.target.id==='bk-add'&&BK.add)BK.add.text=e.target.value});
 
 /* ---------- План на месяц: недели 16 ноября — 13 декабря ---------- */
 /* По неделе: [пн, вт, ср, чт, пт ужины], [сб обед, сб ужин], [вс обед, вс ужин]. Её обеды пн–пт — остатки ужина накануне. */
@@ -1162,7 +1260,7 @@ function autoTrips(){var out=[];
 
 /* ---------- Навигация ---------- */
 var tab=store.get('tab','menu');
-function showTab(t){tab=t;store.set('tab',t);['menu','shop','norms'].forEach(function(x){$('v-'+x).hidden=x!==t});
+function showTab(t){tab=t;store.set('tab',t);['menu','shop','book','norms'].forEach(function(x){$('v-'+x).hidden=x!==t});
   document.querySelectorAll('nav.tabs button').forEach(function(b){if(b.dataset.tab===t)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
   $('days').style.display=t==='menu'?'':'none';window.scrollTo(0,0)}
 document.querySelector('nav.tabs').addEventListener('click',function(e){var b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab)});
@@ -1179,9 +1277,9 @@ $('sheet-body').addEventListener('click',function(e){
   if(p>-1)d.splice(p,1);else d.push(i);store.set('st_'+openId,d);li.classList.toggle('done');
 });
 
-rerender=function(){renderMenu();renderShop();renderNorms();
+rerender=function(){renderMenu();renderShop();renderNorms();renderBook();
   if(openId&&SC_SIG!==scSig(openId)){reopen()}else if(openId){var b=$('rate-box');var ae=document.activeElement;if(b&&!(ae&&ae.dataset&&ae.dataset.note))b.innerHTML=rateBlock(openId)}};
-renderDays();renderMenu();renderShop();renderNorms();showTab(tab);connect();
+renderDays();renderMenu();renderShop();renderNorms();renderBook();showTab(tab);connect();
 })();
 </script>
 </body>
