@@ -737,6 +737,7 @@ function aiContext(q){
 function aiCall(q){var cfg=window.FB_CONFIG;if(!cfg||!window.fetch)return Promise.reject({msg:'ИИ работает только на сайте, открытом по ссылке.'});
   var body=JSON.stringify({systemInstruction:{parts:[{text:AI_SYS}]},contents:[{role:'user',parts:[{text:aiContext(q)}]}],
     generationConfig:{responseMimeType:'application/json',responseSchema:AI_SCHEMA,temperature:0.6}});
+  var tries=0;function again(i){tries++;return new Promise(function(z){setTimeout(z,2500*tries)}).then(function(){return tryM(i)})}
   function tryM(i){var last=i+1>=AI_MODELS.length;var ctl=window.AbortController?new AbortController():null;
     var tm=ctl&&setTimeout(function(){ctl.abort()},last?60000:45000);
     return fetch('https://firebasevertexai.googleapis.com/v1beta/projects/'+cfg.projectId+'/models/'+AI_MODELS[i]+':generateContent',
@@ -746,9 +747,10 @@ function aiCall(q){var cfg=window.FB_CONFIG;if(!cfg||!window.fetch)return Promis
       if(r.status===403&&/not been used|disabled/i.test(m))throw {msg:'ИИ ещё не включён в Firebase (раздел AI Logic). Если только что включили, подождите пару минут.'};
       if(!last&&(r.status===404||r.status>=500||r.status===429||/not found|no longer available|not supported|high demand/i.test(m)))return tryM(i+1);
       if(r.status===429)throw {msg:'Бесплатный лимит запросов к ИИ пока исчерпан. Попробуйте через минуту или завтра.'};
+      if(r.status>=500&&tries<2)return again(i);
       if(r.status>=500)throw {msg:'ИИ сейчас перегружен. Попробуйте через минуту.'};
       throw {msg:'ИИ не ответил ('+r.status+'). Попробуйте ещё раз.'}})},
-    function(e){clearTimeout(tm);if(e&&e.msg)throw e;if(!last)return tryM(i+1);throw {msg:e&&e.name==='AbortError'?'ИИ слишком долго думает. Попробуйте ещё раз.':'ИИ сейчас недоступен: скорее всего, закончился бесплатный лимит запросов (он обновляется каждые сутки и каждую минуту) или пропал интернет. Попробуйте через пару минут.'}})}
+    function(e){clearTimeout(tm);if(e&&e.msg)throw e;if(!last)return tryM(i+1);if(!(e&&e.name==='AbortError')&&tries<2)return again(i);throw {msg:e&&e.name==='AbortError'?'ИИ слишком долго думает. Попробуйте ещё раз.':'ИИ сейчас недоступен: скорее всего, закончился бесплатный лимит запросов (он обновляется каждые сутки и каждую минуту) или пропал интернет. Попробуйте через пару минут.'}})}
   return tryM(0).then(function(j){var c=((j.candidates||[])[0]||{}).content;var t=c&&c.parts?c.parts.map(function(p){return p.text||''}).join(''):'';
     try{return JSON.parse(t)}catch(e){throw {msg:'ИИ ответил непонятно. Попробуйте переформулировать.'}}})}
 /* Страховка от ошибок ИИ: убрать из покупок то, что уже отмечено «Дома» */
