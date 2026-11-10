@@ -688,11 +688,24 @@ function aiCall(q){var cfg=window.FB_CONFIG;if(!cfg||!window.fetch)return Promis
       if(r.status===429)throw {msg:'Бесплатный лимит запросов к ИИ пока исчерпан. Попробуйте через минуту или завтра.'};
       if(r.status>=500)throw {msg:'ИИ сейчас перегружен. Попробуйте через минуту.'};
       throw {msg:'ИИ не ответил ('+r.status+'). Попробуйте ещё раз.'}})},
-    function(e){clearTimeout(tm);if(e&&e.msg)throw e;if(!last)return tryM(i+1);throw {msg:'ИИ слишком долго думает. Попробуйте ещё раз.'}})}
+    function(e){clearTimeout(tm);if(e&&e.msg)throw e;if(!last)return tryM(i+1);throw {msg:e&&e.name==='AbortError'?'ИИ слишком долго думает. Попробуйте ещё раз.':'ИИ сейчас недоступен: скорее всего, закончился бесплатный лимит запросов (он обновляется каждые сутки и каждую минуту) или пропал интернет. Попробуйте через пару минут.'}})}
   return tryM(0).then(function(j){var c=((j.candidates||[])[0]||{}).content;var t=c&&c.parts?c.parts.map(function(p){return p.text||''}).join(''):'';
     try{return JSON.parse(t)}catch(e){throw {msg:'ИИ ответил непонятно. Попробуйте переформулировать.'}}})}
+/* Страховка от ошибок ИИ: убрать из покупок то, что уже отмечено «Дома» */
+function homeNames(){var h=DATA.fridge.map(function(f){return f.name});
+  TRIPS.forEach(function(t){t.groups.forEach(function(g,gi){g[1].forEach(function(it,j){if(DATA.have[itemId(t,gi,j)])h.push(it.split(' — ')[0])})})});
+  return h.map(function(x){return String(x).toLowerCase().replace(/ё/g,'е')})}
+function stem(w){w=w.toLowerCase().replace(/ё/g,'е').replace(/[^а-яa-z]/g,'');return w.length>6?w.slice(0,5):w.length>4?w.slice(0,4):w.slice(0,3)}
+function words(x){return String(x).split(' — ')[0].split(/[\s,()%\d]+/).filter(function(w){return w.replace(/[^а-яёa-z]/gi,'').length>2}).slice(0,2).map(stem)}
+function atHome(item,home){var a=words(item);if(!a.length)return false;
+  return home.some(function(h){var b=words(h);return b.length&&a[0]===b[0]&&(a.length<2||b.length<2||a[1]===b[1])})}
+function dropHomeBuys(o){var home=homeNames();if(!home.length||!o||!o.ops)return o;var left=0;
+  o.ops.forEach(function(op){if(op.buy)op.buy=op.buy.filter(function(x){return !atHome(x,home)});if(op.recipe&&op.recipe.buy)op.recipe.buy=op.recipe.buy.filter(function(x){return !atHome(x,home)});
+    left+=(op.buy||[]).length+((op.recipe&&op.recipe.buy)||[]).length});
+  if(!left&&o.from_home===false&&o.ops.every(function(op){return op.op==='replace'}))o.from_home=true;
+  return o}
 function aiAsk(q,extra){q=(q||'').trim();if(!q||AIST.busy)return;AIST.q=q;AIST.busy=true;AIST.err='';AIST.res=null;renderMenu();
-  aiCall(q+(extra||'')).then(function(o){AIST.busy=false;var p=planFromOps(o.ops);AIST.res={reply:String(o.reply||''),home:o.from_home,p:p};renderMenu()})
+  aiCall(q+(extra||'')).then(function(o){AIST.busy=false;o=dropHomeBuys(o);var p=planFromOps(o.ops);AIST.res={reply:String(o.reply||''),home:o.from_home,p:p};renderMenu()})
    .catch(function(e){AIST.busy=false;AIST.err=(e&&e.msg)||'Нет связи с ИИ. Проверьте интернет.';renderMenu()})}
 var CHIPS=['Приготовить из того, что есть дома','Сегодня не хочу мяса','Поменяй сегодня и завтра','Хочу что-то попроще'];
 function aiPanel(){
