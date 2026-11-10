@@ -312,6 +312,18 @@ nav.tabs .wrap{grid-template-columns:repeat(4,1fr)}
 .pitem.bk .tog.sm{margin-right:10px;white-space:nowrap}
 #toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;max-width:calc(100% - 32px);opacity:0;pointer-events:none;transition:.2s;z-index:60}
 #toast.show{opacity:1;transform:translate(-50%,0)}
+.cms{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.cmh{font-size:14px}
+.cml{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.cml li{background:var(--bg);border-radius:10px;padding:8px 10px}
+.cml li div{display:flex;align-items:center;gap:8px}
+.cml li p{margin:2px 0 0;font-size:14px;white-space:pre-wrap}
+.cmw{font-weight:700;font-size:13px}
+.cml small{color:var(--muted);font-size:12px;flex:1}
+.cml .x{border:0;background:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 2px;margin-left:auto}
+.cmwho{display:flex;gap:6px}
+#cm-text{font:inherit;font-size:14px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--bg);color:var(--ink);resize:vertical;width:100%}
+.cms .btn{align-self:flex-start}
 </style>
 
 </head>
@@ -504,7 +516,7 @@ function rateBlock(id){var k=rid(id);var r=DATA.ratings[k]||{};
   function row(who,label,cls){var v=r[who]||0;var s='';for(var i=1;i<=5;i++)s+='<button type="button" class="star'+(i<=v?' on':'')+'" data-rate="'+who+'" data-v="'+i+'" aria-label="'+label+': '+i+' из 5"'+(i===v?' aria-pressed="true"':'')+'>'+starSvg+'</button>';
     return '<div class="rrow"><b class="'+cls+'">'+label+'</b><div class="stars" role="group" aria-label="Оценка: '+label+'">'+s+'</div></div>'}
   return row('him','Миша','h')+row('her','Поля','s')+
-   '<textarea id="note-'+k+'" data-note="'+k+'" placeholder="Заметка: что поменять в следующий раз">'+esc(r.note||'')+'</textarea>'+
+   commentsBlock(k)+
    '<p class="legend" style="margin:0">'+(r.him||r.her?'Нажмите на ту же звезду ещё раз, чтобы сбросить оценку.':'Оцените после того, как попробуете.')+'</p>'}
 function mins(s){var m=Math.round(s/60);return m>=60?(Math.floor(m/60)+' ч'+(m%60?' '+m%60+' мин':'')):m+' мин'}
 
@@ -649,8 +661,8 @@ function rankHtml(){
 
 /* ---------- Нормы ---------- */
 function exportText(){var lines=['Оценки блюд, неделя 10–15 ноября'];
-  Object.keys(R).filter(function(k){return !R[k].leftover&&(!(R[k].book||R[k].ai)||DATA.ratings[k]||planIds()[k])}).forEach(function(k){var r=DATA.ratings[k]||{};
-    lines.push('• '+R[k].title+': Миша '+(r.him||'—')+', Поля '+(r.her||'—')+(r.note?' — «'+r.note+'»':''))});
+  Object.keys(R).filter(function(k){return !R[k].leftover&&(!(R[k].book||R[k].ai)||DATA.ratings[k]||cmCount(k)||planIds()[k])}).forEach(function(k){var r=DATA.ratings[k]||{};
+    lines.push('• '+R[k].title+': Миша '+(r.him||'—')+', Поля '+(r.her||'—')+(cmCount(k)?' — '+cmText(k):''))});
   return lines.join('\n')}
 function exportHtml(){return '<div class="prose"><h3>Оценки для Claude</h3><p>Скопируйте и вставьте в чат с Claude, чтобы он учёл их в меню на следующую неделю.</p>'+
   '<div class="tf" style="padding:0"><button type="button" class="btn pri" id="exp">Скопировать оценки</button></div><textarea class="copyout" readonly id="exp-out" hidden aria-label="Оценки для копирования"></textarea></div>'}
@@ -789,8 +801,8 @@ function aiContext(q){
   L.push('','Основные продукты блюд на сегодня и будущие дни:');
   DAYS.forEach(function(x,i){if(x.d<TODAY||x.d>lim)return;mealsOf(i).forEach(function(m){var r=R[m[2]];if(!r||r.leftover||!r.ing)return;
     L.push('  '+r.title+': '+r.ing.map(function(a){return a[0]}).filter(function(n){return !/^(Соль|Сахар|Вода)/.test(n)}).join(', '))})});
-  var rt=Object.keys(DATA.ratings).filter(function(k){return R[k]}).map(function(k){var r=DATA.ratings[k];
-    return R[k].title+': Миша '+(r.him||'—')+', Поля '+(r.her||'—')+(r.note?' («'+r.note+'»)':'')});
+  var rt=Object.keys(R).filter(function(k){return !R[k].leftover&&(DATA.ratings[k]||cmCount(k))}).map(function(k){var r=DATA.ratings[k]||{};
+    return R[k].title+': Миша '+(r.him||'—')+', Поля '+(r.her||'—')+(cmCount(k)?' (комментарии: '+cmText(k,4)+')':'')});
   L.push('Оценки: '+(rt.length?rt.join('; '):'пока нет'));
   var bad=Object.keys(R).filter(function(k){return R[k]&&!R[k].leftover&&typeof disliked==='function'&&disliked(k)}).map(function(k){return R[k].title});
   if(bad.length)L.push('Не понравилось, не предлагай ни сами блюда, ни похожие: '+bad.join('; '));
@@ -1844,7 +1856,7 @@ function renderBook(){var el=$('v-book');if(!el)return;var q=BK.q.trim().toLower
    '<div class="chips">'+[['all','Все'],['veg','Без мяса'],['fish','Рыба'],['bird','Птица'],['meat','Мясо'],['soup','Супы'],['salad','Салаты'],['mine','Наши']].concat(nHid?[['hidden','Скрытые · '+nHid]]:[]).map(function(c){return '<button type="button" class="chip'+(BK.f===c[0]?' on':'')+'" data-bkf="'+c[0]+'">'+c[1]+'</button>'}).join('')+
    '<button type="button" class="chip'+(BK.quick?' on':'')+'" data-bkq="1">До 30 минут</button></div>'+addPanel();
   h+=list.length?'<div class="plist">'+list.map(function(k){var r=R[k],pi=portionInfo(k),d=disliked(k);
-    return '<div class="pitem bk'+(d?' dis':'')+'"><button type="button" class="bkopen" data-r="'+k+'"><span>'+(r.tag?TAGS[r.tag]+' · ':'')+esc(r.time)+(PRIV&&pi?' · ≈ '+pi.p+' ккал':'')+ratingText(k)+'</span><b>'+esc(r.title)+'</b>'+
+    return '<div class="pitem bk'+(d?' dis':'')+'"><button type="button" class="bkopen" data-r="'+k+'"><span>'+(r.tag?TAGS[r.tag]+' · ':'')+esc(r.time)+(PRIV&&pi?' · ≈ '+pi.p+' ккал':'')+ratingText(k)+(cmCount(k)?' · 💬 '+cmCount(k):'')+'</span><b>'+esc(r.title)+'</b>'+
       (d&&!hiddenDish(k)?'<small class="miss">Низкая оценка — больше не предлагается</small>':'')+'</button>'+(hiddenDish(k)?'<button type="button" class="tog sm" data-bkunhide="'+k+'">Вернуть</button>':'<button type="button" class="lnk sm" data-bkhide="'+k+'">Не нравится</button>')+(r.user?'<button type="button" class="lnk" data-bkdel="'+k+'">Удалить</button>':'')+'</div>'}).join('')+'</div>'
     :'<p class="legend">Ничего не нашлось.</p>';
   el.innerHTML=h;
@@ -2005,6 +2017,33 @@ document.addEventListener('click',function(e){var t;
   if((t=e.target.closest('[data-sc23]'))){setScale(t.dataset.sc23,{i:-1,f:.7,v:'2 порции'});return}
   if(e.target.closest('#days [data-i]')&&MV!=='day'){MV='day';store.set('mview',MV)}},true);
 
+/* ---------- Комментарии к блюдам: сколько угодно, с именем и датой ---------- */
+var ME=store.get('me',null);
+var MONS=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+function cmList(k){var a=(EXTRA['cm-'+k]||{}).list||[];var r=DATA.ratings[k];
+  if(r&&r.note)a=[{who:'',t:r.note,at:0,legacy:1}].concat(a);return a}
+function cmCount(k){return cmList(k).length}
+function cmText(k,max){var a=cmList(k);if(max)a=a.slice(-max);return a.map(function(c){return (c.who?c.who+': ':'')+c.t}).join('; ')}
+function fmtD(ts){if(!ts)return '';var d=new Date(ts);return d.getDate()+' '+MONS[d.getMonth()]}
+function commentsBlock(k){var a=cmList(k);
+  var h='<div class="cms"><b class="cmh">Комментарии на будущее</b>';
+  h+=a.length?'<ul class="cml">'+a.map(function(c,i){return '<li><div><span class="cmw'+(c.who==='Поля'?' s':c.who==='Миша'?' h':'')+'">'+esc(c.who||'Заметка')+'</span>'+(c.at?'<small>'+fmtD(c.at)+'</small>':'')+
+      '<button type="button" class="x" data-cmdel="'+(c.legacy?'legacy':i-(a[0].legacy?1:0))+'" aria-label="Удалить комментарий">×</button></div><p>'+esc(c.t)+'</p></li>'}).join('')+'</ul>'
+    :'<p class="legend" style="margin:0">Например: «меньше чеснока», «сделать двойную порцию», «Поле понравился соус».</p>';
+  h+='<div class="cmwho" role="group" aria-label="Кто пишет">'+['Миша','Поля'].map(function(n){return '<button type="button" class="chip'+(ME===n?' on':'')+'" data-me="'+n+'">'+n+'</button>'}).join('')+'</div>'+
+    '<textarea id="cm-text" rows="2" maxlength="500" placeholder="Новый комментарий"></textarea>'+
+    '<button type="button" class="btn pri" data-cmadd="'+k+'">Добавить комментарий</button></div>';
+  return h}
+function cmSave(k,list){setExtra('cm-'+k,list.length?{list:list}:null)}
+$('sheet-body').addEventListener('click',function(e){var t;if(!openId)return;var k=rid(openId);
+  if((t=e.target.closest('[data-me]'))){ME=t.dataset.me;store.set('me',ME);Array.prototype.forEach.call(document.querySelectorAll('[data-me]'),function(b){b.classList.toggle('on',b.dataset.me===ME)});return}
+  if((t=e.target.closest('[data-cmadd]'))){var ta=$('cm-text'),v=(ta.value||'').trim();if(!v){ta.focus();return}
+    if(!ME){toast('Выберите, кто пишет: Миша или Поля.');return}
+    var list=((EXTRA['cm-'+k]||{}).list||[]).concat([{who:ME,t:v,at:Date.now()}]);ta.value='';cmSave(k,list);$('rate-box').innerHTML=rateBlock(openId);return}
+  if((t=e.target.closest('[data-cmdel]'))){if(!confirm('Удалить комментарий?'))return;var d=t.dataset.cmdel;
+    if(d==='legacy'){API.rate(k,{note:null})}else{var l=((EXTRA['cm-'+k]||{}).list||[]).slice();l.splice(+d,1);cmSave(k,l)}
+    $('rate-box').innerHTML=rateBlock(openId)}});
+
 /* ---------- Навигация ---------- */
 var tab=store.get('tab','menu');
 function showTab(t){tab=t;store.set('tab',t);['menu','shop','book','norms'].forEach(function(x){$('v-'+x).hidden=x!==t});
@@ -2025,7 +2064,7 @@ $('sheet-body').addEventListener('click',function(e){
 });
 
 rerender=function(){renderMenu();renderShop();renderNorms();renderBook();
-  if(openId&&SC_SIG!==scSig(openId)){reopen()}else if(openId){var b=$('rate-box');var ae=document.activeElement;if(b&&!(ae&&ae.dataset&&ae.dataset.note))b.innerHTML=rateBlock(openId)}};
+  if(openId&&SC_SIG!==scSig(openId)){reopen()}else if(openId){var b=$('rate-box');var ae=document.activeElement;if(b&&!(ae&&(ae.id==='cm-text'||(ae.dataset&&ae.dataset.note))))b.innerHTML=rateBlock(openId)}};
 renderDays();renderMenu();renderShop();renderNorms();renderBook();showTab(tab);connect();
 })();
 </script>
