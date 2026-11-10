@@ -271,6 +271,8 @@ button.pitem{cursor:pointer}
 .miss{color:var(--tomato)}
 .have{color:var(--herb);font-weight:700}
 .chip.on{background:var(--herb);border-color:var(--herb);color:var(--surface)}
+.wkarr{border:0;background:none;font-size:26px;line-height:1;color:var(--herb);cursor:pointer;padding:0}
+.wkarr:disabled{color:var(--line);cursor:default}
 </style>
 
 </head>
@@ -464,7 +466,7 @@ function rateBlock(id){var k=rid(id);var r=DATA.ratings[k]||{};
    '<p class="legend" style="margin:0">'+(r.him||r.her?'Нажмите на ту же звезду ещё раз, чтобы сбросить оценку.':'Оцените после того, как попробуете.')+'</p>'}
 function mins(s){var m=Math.round(s/60);return m>=60?(Math.floor(m/60)+' ч'+(m%60?' '+m%60+' мин':'')):m+' мин'}
 
-function renderDays(){
+function renderDays0(){
   $('days').innerHTML=DAYS.map(function(x,i){return '<button type="button" class="day" aria-pressed="'+(i===cur)+'" data-i="'+i+'" aria-label="'+esc(x.label)+'"><b>'+x.w+'</b><span>'+x.n+'</span>'+(x.d===TODAY?'<i class="today" title="Сегодня"></i>':'')+'</button>'}).join('');
 }
 function renderMenu(){
@@ -643,7 +645,7 @@ function dayTrips(i){var x=DAYS[i],t=[];if(x.d<TODAY)return t;
   return t}
 function aiTrips(){var t=[];DAYS.forEach(function(_,i){t=t.concat(dayTrips(i))});return t}
 function dayMissing(i){var miss=[];dayTrips(i).forEach(function(t){t.groups.forEach(function(g,gi){g[1].forEach(function(it,j){if(!DATA.have[itemId(t,gi,j)])miss.push(it)})})});return miss}
-function allTrips(){return aiTrips().concat(TRIPS)}
+function allTrips(){return aiTrips().concat(TODAY<='2026-11-15'?TRIPS:[]).concat(typeof autoTrips==='function'?autoTrips():[])}
 
 /* Применение изменений: перестановки и новые блюда, потом обеды-ланчбоксы перепривязываются к ужину накануне */
 function mIdx(A,meal){for(var k=0;k<A.length;k++)if(A[k][0]===meal)return k;return -1}
@@ -732,15 +734,15 @@ var AI_SYS=['Ты помощник по домашнему меню на нед�
 function aiContext(q){
   var WD=['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];function dd(k){var t=new Date();t.setDate(t.getDate()+k);return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0')+' ('+WD[t.getDay()]+')'}
   var L=['Даты: сегодня '+dd(0)+', завтра '+dd(1)+', послезавтра '+dd(2)+'.','Пользователь сейчас смотрит день '+DAYS[cur].d+' ('+DAYS[cur].label+').','','Меню:'];
-  DAYS.forEach(function(x,i){L.push(x.d+' ('+x.label+')'+(x.d<TODAY?' — прошёл':'')+':');
+  var lim=addD(TODAY,8);DAYS.forEach(function(x,i){if(x.d<addD(TODAY,-1)||x.d>lim)return;L.push(x.d+' ('+x.label+')'+(x.d<TODAY?' — прошёл':'')+':');
     mealsOf(i).forEach(function(m){var r=R[m[2]];L.push('  '+m[0]+' ('+WHO[m[1]]+'): '+(r?r.title+(r.leftover?' — остатки вчерашнего ужина':''):'—'))})});
   var home=DATA.fridge.map(function(f){return f.name+(f.qty?' ('+f.qty+')':'')});
-  TRIPS.forEach(function(t){t.groups.forEach(function(g,gi){g[1].forEach(function(it,j){if(DATA.have[itemId(t,gi,j)])home.push(it)})})});
+  allTrips().forEach(function(t){t.groups.forEach(function(g,gi){g[1].forEach(function(it,j){if(DATA.have[itemId(t,gi,j)])home.push(it)})})});
   L.push('','Есть дома: '+(home.length?home.join('; '):'ничего не отмечено — считай, что дома только базовые запасы'));
-  var notb=[];TRIPS.forEach(function(t){if(t.id==='pan')return;t.groups.forEach(function(g,gi){g[1].forEach(function(it,j){if(!DATA.have[itemId(t,gi,j)])notb.push(it)})})});
+  var notb=[];allTrips().forEach(function(t){if(t.id==='pan')return;t.groups.forEach(function(g,gi){g[1].forEach(function(it,j){if(!DATA.have[itemId(t,gi,j)])notb.push(it)})})});
   L.push('Не куплено из списков покупок (этого дома нет): '+(notb.length?notb.join('; '):'всё куплено'));
   L.push('','Основные продукты блюд на сегодня и будущие дни:');
-  DAYS.forEach(function(x,i){if(x.d<TODAY)return;mealsOf(i).forEach(function(m){var r=R[m[2]];if(!r||r.leftover||!r.ing)return;
+  DAYS.forEach(function(x,i){if(x.d<TODAY||x.d>lim)return;mealsOf(i).forEach(function(m){var r=R[m[2]];if(!r||r.leftover||!r.ing)return;
     L.push('  '+r.title+': '+r.ing.map(function(a){return a[0]}).filter(function(n){return !/^(Соль|Сахар|Вода)/.test(n)}).join(', '))})});
   var rt=Object.keys(DATA.ratings).filter(function(k){return R[k]}).map(function(k){var r=DATA.ratings[k];
     return R[k].title+': он '+(r.him||'—')+', она '+(r.her||'—')+(r.note?' («'+r.note+'»)':'')});
@@ -768,7 +770,7 @@ function aiCall(q){var cfg=window.FB_CONFIG;if(!cfg||!window.fetch)return Promis
     try{return JSON.parse(t)}catch(e){throw {msg:'ИИ ответил непонятно. Попробуйте переформулировать.'}}})}
 /* Страховка от ошибок ИИ: убрать из покупок то, что уже отмечено «Дома» */
 function homeNames(){var h=DATA.fridge.map(function(f){return f.name});
-  TRIPS.forEach(function(t){t.groups.forEach(function(g,gi){g[1].forEach(function(it,j){if(DATA.have[itemId(t,gi,j)])h.push(it.split(' — ')[0])})})});
+  allTrips().forEach(function(t){t.groups.forEach(function(g,gi){g[1].forEach(function(it,j){if(DATA.have[itemId(t,gi,j)])h.push(it.split(' — ')[0])})})});
   return h.map(function(x){return String(x).toLowerCase().replace(/ё/g,'е')})}
 function stem(w){w=w.toLowerCase().replace(/ё/g,'е').replace(/[^а-яa-z]/g,'');return w.length>6?w.slice(0,5):w.length>4?w.slice(0,4):w.slice(0,3)}
 function words(x){return String(x).split(' — ')[0].split(/[\s,()%\d]+/).filter(function(w){return w.replace(/[^а-яёa-z]/gi,'').length>2}).slice(0,2).map(stem)}
@@ -827,22 +829,6 @@ var BOOK=[
    ['Подача','Раскрошите сверху фету. Подавайте прямо в сковороде с подсушенным хлебом.']],
   ['Огурцы с зеленью','Огурцы 2 шт., укроп или петрушка, лимонный сок','Нарежьте и сбрызните соком.'],
   'Для ланчбокса возьмите 2 яйца с соусом и доведите их до твёрдого желтка. Хлеб — отдельно.'],
- ['buckwheat','veg',30,'Гречка с грибами, луком и яйцом',
-  [['Гречка','240 г'],['Шампиньоны','400 г'],['Лук','2 шт.'],['Морковь','1 шт.'],['Яйца','4 шт.'],['Сметана','150 г'],['Сливочное масло','20 г'],['Укроп','½ пучка']],
-  [['Гречка','Промойте гречку, залейте 480 мл кипятка, посолите и варите под крышкой на минимальном огне.',18],
-   ['Яйца','Сварите яйца вкрутую и остудите в холодной воде.',10],
-   ['Зажарка','Лук нарежьте полукольцами, морковь натрите. Обжарьте на масле 5 минут, добавьте нарезанные грибы и жарьте, пока не уйдёт жидкость.',12],
-   ['Соединить','Вмешайте зажарку в гречку, посолите и поперчите. Подавайте с половинками яиц, сметаной и укропом.']],
-  ['Квашеная капуста или огурцы','Квашеная капуста 300 г или свежие огурцы, растительное масло','Заправьте маслом.'],
-  'Гречку с грибами положите в контейнер, яйцо и сметану — отдельно.'],
- ['chickpasta','veg',25,'Паста с нутом, томатами и шпинатом',
-  [['Паста (пенне, фузилли)','300 г'],['Нут консервированный','1 банка'],['Томаты в собственном соку','400 г'],['Шпинат (можно замороженный)','150 г'],['Чеснок','3 зубчика'],['Пармезан или твёрдый сыр','60 г'],['Оливковое масло','2 ст. л.'],['Сушёный орегано','1 ч. л.']],
-  [['Паста','Сварите пасту в подсоленной воде на минуту меньше, чем на пачке. Отлейте полстакана воды.',10],
-   ['Соус','Пока варится паста, обжарьте на масле чеснок 30 секунд, добавьте томаты, нут и орегано, тушите.',8],
-   ['Шпинат','Вмешайте шпинат и прогрейте, пока не опадёт. Посолите.',2],
-   ['Соединить','Смешайте пасту с соусом, добавьте немного воды из-под пасты. Посыпьте сыром.']],
-  ['Помидоры с базиликом','Помидоры 3 шт., базилик, оливковое масло','Нарежьте дольками и заправьте.'],
-  'Хорошо разогревается: добавьте ложку воды перед микроволновкой.'],
  ['zucchinibake','veg',40,'Запеканка из кабачков с рисом и сыром',
   [['Кабачки','2 шт. (~700 г)'],['Рис','150 г'],['Яйца','3 шт.'],['Твёрдый сыр','120 г'],['Сметана','150 г'],['Помидоры','2 шт.'],['Лук','1 шт.'],['Чеснок','2 зубчика']],
   [['Рис','Сварите рис до полуготовности.',10],
@@ -905,10 +891,6 @@ var BOOK=[
   [['Красная чечевица','250 г'],['Морковь','2 шт.'],['Лук','1 шт.'],['Томаты в собственном соку','400 г'],['Зира','1 ч. л.'],['Лимон','½ шт.'],['Хлеб','6 ломтиков']],
   [['Зажарка','Обжарьте лук и тёртую морковь на масле, добавьте чеснок и зиру.',6],['Суп','Добавьте промытую чечевицу, томаты и 1,5 л воды, посолите. Варите, пока чечевица не разварится.',20],['Подача','Пробейте блендером частично или полностью, подавайте с лимоном и хлебом.']],
   ['Огурцы и редис','Огурцы 2 шт., редис, зелень, масло','Нарежьте и заправьте.'],'Суп в термокружку или банку, хлеб отдельно.'],
- ['vegcurry','veg',35,'Овощное карри с нутом и рисом',
-  [['Нут консервированный','2 банки'],['Кокосовое молоко','400 мл'],['Паста карри или порошок карри','2 ст. л.'],['Цветная капуста или брокколи','400 г'],['Шпинат','100 г'],['Рис','180 г'],['Лук','1 шт.']],
-  [['Рис','Сварите рис под крышкой.',18],['Основа','Обжарьте лук, чеснок и карри 2 минуты, добавьте соцветия капусты и немного воды.',8],['Карри','Влейте кокосовое молоко, добавьте нут, посолите и тушите. В конце вмешайте шпинат.',10]],
-  ['Огурцы с йогуртом','Огурцы 2 шт., йогурт, мята','Нарежьте и смешайте.'],'Карри и рис в один контейнер.'],
  ['syrniki','veg',30,'Сырники со сметаной и ягодами',
   [['Творог 5–9%','800 г'],['Яйца','2 шт.'],['Мука','5 ст. л.'],['Сахар','2 ст. л.'],['Сметана','200 г'],['Ягоды (можно замороженные)','200 г']],
   [['Тесто','Разомните творог с яйцами, сахаром и щепоткой соли, добавьте муку. Масса должна держать форму.'],['Формовка','Мокрыми руками сформируйте 12–14 сырников, обваляйте в муке.'],['Жарка','Жарьте на среднем огне по 3–4 минуты с каждой стороны под крышкой.',8],['Подача','Подавайте со сметаной и ягодами.']],
@@ -921,10 +903,6 @@ var BOOK=[
   [['Картофель','1 кг'],['Лук','1 шт.'],['Яйца','2 шт.'],['Мука','3 ст. л.'],['Сметана','200 г'],['Растительное масло','для жарки']],
   [['Тесто','Натрите картофель и лук на мелкой тёрке, отожмите сок. Добавьте яйца, муку, соль.'],['Жарка','Выкладывайте ложкой на разогретое масло, жарьте до золотистой корочки по 3–4 минуты с каждой стороны.',8],['Подача','Подавайте горячими со сметаной.']],
   ['Квашеная капуста','Квашеная капуста 300 г, масло','Заправьте маслом.'],'Разогревайте на сковороде, в микроволновке они размякнут.'],
- ['lobio','veg',30,'Лобио из красной фасоли с лепёшками',
-  [['Красная фасоль консервированная','3 банки'],['Лук','2 шт.'],['Грецкие орехи','60 г'],['Томатная паста','2 ст. л.'],['Кинза','1 пучок'],['Хмели-сунели','1 ч. л.'],['Лаваш или лепёшки','3 шт.']],
-  [['Лук','Обжарьте лук до мягкости, добавьте томатную пасту и специи.',8],['Фасоль','Добавьте фасоль с частью жидкости, тушите, немного разминая.',10],['Финал','Вмешайте рубленые орехи, чеснок и кинзу. Подавайте тёплым с лепёшками.']],
-  ['Помидоры с луком','Помидоры 3 шт., красный лук, кинза','Нарежьте, посолите.'],'Лобио вкусно и холодным.'],
  ['fishcakes','fish',40,'Рыбные котлеты из минтая с картофелем',
   [['Филе минтая или хека','700 г'],['Лук','1 шт.'],['Яйцо','1 шт.'],['Батон или сухари','2 ломтика'],['Картофель','900 г'],['Сметана','100 г']],
   [['Картофель','Отварите картофель в подсоленной воде.',20],['Фарш','Измельчите рыбу с луком и размоченным хлебом, добавьте яйцо, соль, перец. Сформируйте котлеты.'],['Жарка','Обжарьте по 4 минуты с каждой стороны, затем 5 минут под крышкой.',13],['Подача','Подавайте с картофелем, сметаной и зеленью.']],
@@ -1119,6 +1097,68 @@ $('sheet-body').addEventListener('submit',function(e){var f=e.target.closest('[d
   var k=v/b.v;if(k<.1||k>10){alert('Слишком большая разница с рецептом. Проверьте число: по рецепту '+a[1]+'.');return}
   SCED=null;if(Math.abs(k-1)<.001)setScale(openId,null);else setScale(openId,{i:i,f:Math.round(k*1000)/1000,v:numTxt(v)+(b.unit?' '+b.unit:'')});reopen()});
 function kc(id,v){var k=R[id]&&R[id].src||id,f=scaleOf(k);return f===1?v:Math.round(v*f/10)*10}
+
+/* ---------- План на месяц: недели 16 ноября — 13 декабря ---------- */
+/* По неделе: [пн, вт, ср, чт, пт ужины], [сб обед, сб ужин], [вс обед, вс ужин]. Её обеды пн–пт — остатки ужина накануне. */
+var MONTH=[
+ ['2026-11-16',['b-teriyaki','b-bolognese','b-salmon','b-kupecheskaya','b-burgers'],['b-chicksoup','b-stuffedpep'],['b-syrniki','b-ovenchicken']],
+ ['2026-11-23',['b-porkstir','b-chickcurry','b-meatballs','b-hakecheese','b-porkchops'],['b-lentilsoup','b-meatplov'],['b-shawarma','b-chickstew']],
+ ['2026-11-30',['b-chickcream','b-stroganoff','b-codtomato','b-turkeysoba','b-chickcutlet'],['borscht','b-lasagna'],['b-shakshuka','b-lazygolub']],
+ ['2026-12-07',['pasta','chili','b-shrimppasta','turkey','fajitas'],['b-chicksoup','b-goulash'],['b-mushrisotto','chicken']]];
+var WD=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'],WDL=['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+var MON=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+function ymd(t){return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0')}
+function addD(d,k){var t=new Date(d+'T12:00:00');t.setDate(t.getDate()+k);return ymd(t)}
+(function(){
+  var prev=DAYS[DAYS.length-1].meals.filter(function(m){return m[0]==='Ужин'})[0][2];
+  MONTH.forEach(function(wk,wi){
+    for(var k=0;k<7;k++){var d=addD(wk[0],k),t=new Date(d+'T12:00:00'),meals;
+      if(k<5)meals=[['Обед','her','l-'+prev],['Ужин','both',wk[1][k]]];
+      else{var we=wk[k===5?2:3];meals=[['Обед','both',we[0]],['Ужин','both',we[1]]]}
+      var notes={0:'Сегодня закупка на понедельник — среду.',3:'Сегодня закупка на четверг — воскресенье.'};
+      DAYS.push({d:d,w:WD[t.getDay()],n:String(t.getDate()),label:WDL[t.getDay()]+', '+t.getDate()+' '+MON[t.getMonth()],note:notes[k],meals:meals,auto:true});
+      prev=meals[1][2]}
+  });
+  ensureRefs();
+  var ti=-1;DAYS.forEach(function(x,i){if(x.d===TODAY)ti=i});if(ti>=0)cur=ti;else if(cur>=DAYS.length)cur=0;
+})();
+
+/* Недели в полоске дней */
+function weekStart(d){var t=new Date(d+'T12:00:00'),w=(t.getDay()+6)%7;return addD(d,-w)}
+function weekIdx(i){return weekStart(DAYS[i].d)}
+function renderDays(){var ws=weekIdx(cur),idx=[];DAYS.forEach(function(x,i){if(weekStart(x.d)===ws)idx.push(i)});
+  var first=idx[0],last=idx[idx.length-1],a=DAYS[first],b=DAYS[last];
+  var lbl=a.n+(a.label.split(' ')[2]===b.label.split(' ')[2]?'':' '+a.label.split(' ')[2])+'–'+b.n+' '+b.label.split(' ')[2];
+  var wkEl=document.querySelector('.brand .wk');if(wkEl)wkEl.textContent=lbl;
+  $('days').style.gridTemplateColumns='28px repeat('+idx.length+',1fr) 28px';
+  $('days').innerHTML='<button type="button" class="wkarr" data-wk="-1" aria-label="Прошлая неделя"'+(first===0?' disabled':'')+'>‹</button>'+
+    idx.map(function(i){var x=DAYS[i];return '<button type="button" class="day" aria-pressed="'+(i===cur)+'" data-i="'+i+'" aria-label="'+esc(x.label)+'"><b>'+x.w+'</b><span>'+x.n+'</span>'+(x.d===TODAY?'<i class="today" title="Сегодня"></i>':'')+'</button>'}).join('')+
+    '<button type="button" class="wkarr" data-wk="1" aria-label="Следующая неделя"'+(last===DAYS.length-1?' disabled':'')+'>›</button>'}
+$('days').addEventListener('click',function(e){var b=e.target.closest('[data-wk]');if(!b||b.disabled)return;e.stopPropagation();
+  var ws=weekIdx(cur),dir=+b.dataset.wk,target=addD(ws,7*dir),j=-1;
+  DAYS.forEach(function(x,i){if(j<0&&weekStart(x.d)===target)j=i});
+  if(j>=0){DAYS.forEach(function(x,i){if(weekStart(x.d)===target&&x.d===TODAY)j=i});cur=j;store.set('day',cur);renderDays();renderMenu();window.scrollTo(0,0)}},true);
+
+/* Сложить одинаковые единицы: «1 шт. + 2 шт.» → «3 шт.», «200 г + 150 г» → «350 г» */
+function sumQ(qs){var tot={},ord=[],rest=[];
+  qs.forEach(function(q){var m=String(q).trim().replace(/^~/,'').match(/^(\d+(?:[.,]\d+)?|½|¼|¾)\s*([а-яё.]+(?:\s[а-яё.]+)?)$/i);
+    if(!m){rest.push(q);return}var v=m[1]==='½'?.5:m[1]==='¼'?.25:m[1]==='¾'?.75:parseFloat(m[1].replace(',','.')),u=m[2].toLowerCase();
+    if(!(u in tot)){tot[u]=0;ord.push(u)}tot[u]+=v});
+  return ord.map(function(u){var v=Math.round(tot[u]*100)/100;if(u==='г'&&v>=1000)return String(Math.round(v/100)/10).replace('.',',')+' кг';
+    if(u==='мл'&&v>=1000)return String(Math.round(v/100)/10).replace('.',',')+' л';return String(v).replace('.',',').replace(/^0,5$/,'½')+' '+u}).concat(rest).join(' + ')}
+/* Автоматические списки покупок для недель месяца: закупка в пн (пн–ср) и в чт (чт–вс) */
+var AUTO_STAPLE=/^(соль|перец горошком|чёрный перец|соль, |лавровый|сахар|растительное|оливковое|мука|крахмал|вода|томатная паста|уксус|сушёный|специи|зира|паприка|копчёная|орегано|хмели|для жарки)/i;
+function autoTrips(){var out=[];
+  DAYS.forEach(function(x,i){if(!x.auto)return;var k=(new Date(x.d+'T12:00:00').getDay()+6)%7;if(k!==0&&k!==3)return;
+    var span=k===0?3:4,end=addD(x.d,span-1);if(end<TODAY||x.d>addD(TODAY,7))return;
+    var agg={},order=[],dishes=[];
+    for(var j=i;j<DAYS.length&&DAYS[j].d<=end;j++)mealsOf(j).forEach(function(m){var r=R[m[2]];if(!r||r.leftover||!r.ing)return;dishes.push(r.short||r.title);
+      var f=scaleOf(m[2]);r.ing.forEach(function(a){if(AUTO_STAPLE.test(a[0])||/по вкусу/.test(a[1]||''))return;var key=a[0].toLowerCase();
+        if(!agg[key]){agg[key]={n:a[0],q:[]};order.push(key)}agg[key].q.push(sq(a[1],f))})});
+    if(!order.length)return;
+    out.push({id:'w'+x.d,title:'Закупка — '+x.label.toLowerCase(),sub:'На '+(k===0?'понедельник — среду':'четверг — воскресенье')+': '+dishes.join(', '),
+      groups:[['Продукты',order.map(function(key){var a=agg[key];return a.n+' — '+sumQ(a.q.filter(Boolean))})]]})});
+  return out}
 
 /* ---------- Навигация ---------- */
 var tab=store.get('tab','menu');
