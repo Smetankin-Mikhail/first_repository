@@ -406,7 +406,7 @@ function loadOwner(key){
   return fetch('owner.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(f){
     return crypto.subtle.importKey('raw',raw,'AES-GCM',false,['decrypt']).then(function(k){
       return crypto.subtle.decrypt({name:'AES-GCM',iv:b64(f.iv)},k,b64(f.ct))})
-  }).then(function(buf){applyOwner(JSON.parse(new TextDecoder().decode(buf)));
+  }).then(function(buf){applyOwner(JSON.parse(new TextDecoder().decode(buf)));if(typeof nutBase==='function')nutBase();
     Object.keys(R).forEach(function(k){var r=R[k];if(r.leftover&&R[r.src]&&R[r.src].kcal&&!r.kcal[1])r.kcal=[null,R[r.src].kcal[1]]});rerender();
     if(openId){var y=$('sheet').scrollTop;openRecipe(openId);$('sheet').scrollTop=y}return true
   }).catch(function(){return false});
@@ -701,6 +701,7 @@ function addAiRecipe(id,o){
   var R0=R[id];if(o.kcal_per_portion)R0.kcalp=Math.round(+o.kcal_per_portion);
   if(o.protein_g&&o.fat_g!=null&&o.carbs_g)R0.mac=[+o.protein_g,+o.fat_g,+o.carbs_g];if(o.multicooker)R0.mc=String(o.multicooker);
   if(o.user){R0.book=true;R0.user=true;R0.tag=o.tag;R0.mins=+o.mins||null}
+  if(typeof nutOne==='function')nutOne(id);
   delete R['l-'+id];mkLeftover(id)}
 function loadAi(){Object.keys(AIR).forEach(function(id){try{addAiRecipe(id,AIR[id])}catch(e){}})}
 function ensureRefs(){DAYS.forEach(function(x,i){mealsOf(i).forEach(function(m){if(!R[m[2]]&&/^l-/.test(m[2]))mkLeftover(m[2].slice(2))})})}
@@ -1840,10 +1841,11 @@ var HER_DINNER=600; // её ужин при норме 1800 ккал
 Object.keys(BOOK_KCAL).forEach(function(k){var r=R['b-'+k];if(!r)return;var v=BOOK_KCAL[k];r.kcalp=v[0];
   if(v[1]&&v[1]!==3)r.serves=v[1]+' порций: хватит на два приёма пищи'});
 function portionInfo(id){var r=R[id];if(!r)return null;var s=r.src?R[r.src]:r;if(!s||!s.kcalp)return null;
-  var so=scaleObj(r.src||id),f=so&&so.i>=0?so.f:1,p=Math.round(s.kcalp*f/10)*10;
-  var her=Math.min(1,Math.max(.5,Math.floor(560/p*4)/4)),three=/^3 порц/.test(s.serves||'');
-  var him=three?Math.max(1,3-2*her):1.25;
-  return {p:p,her:her,herK:Math.round(p*her/10)*10,him:him,himK:Math.round(p*him/10)*10}}
+  var so=scaleObj(r.src||id),f=so&&so.i>=0?so.f:1,N=s.nutN||(typeof servesN==='function'?servesN(s):3),pp=s.kcalp*f,T=pp*N,rr=1.6,herK,himK;
+  // Ужин Миши ≈ в 1,6 раза больше ужина Поли (нормы 2550 и 1800 ккал). 3 порции = ужин Миши, ужин Поли и обед Поли.
+  if(N===3){herK=T/(rr+2);himK=rr*herK}else if(N===2){herK=T/(rr+1);himK=rr*herK}else{himK=pp*2*rr/(rr+1);herK=pp*2/(rr+1)}
+  var p=Math.round(pp/10)*10;
+  return {p:p,her:herK/pp,herK:Math.round(herK/10)*10,him:himK/pp,himK:Math.round(himK/10)*10}}
 function fracTxt(x){var w=Math.floor(x),q=Math.round((x-w)*4),fr=['','¼','½','¾'][q]||'';if(q===4){w++;fr=''}
   if(x===1)return 'порция';return (w?String(w):'')+fr+' порции'}
 function portionMeta(id){var r=R[id];if(!PRIV||(r&&r.kcal&&r.kcal[0]))return '';var pi=portionInfo(id);if(!pi)return '';
@@ -2044,13 +2046,16 @@ var MAC={pasta:[45,22,85],turkey:[55,15,60],chili:[45,25,75],fajitas:[45,25,80],
  'b-porkkebab':[40,60,25],'b-lagman':[35,28,90],'b-ribs':[40,65,60],'b-polishfish':[38,20,55],'b-salmonteriyaki':[38,30,80],'b-squid':[35,8,70],'b-paella':[35,12,85],'b-tilapiafoil':[40,10,40],
  'b-fishtacos':[35,25,65],'b-shrimpstir':[35,8,75],'b-macncheese':[32,35,85],'b-eggplantparm':[25,30,35],'b-shuba':[15,30,22],'b-crab':[15,18,40],'b-mimosa':[18,26,20],'b-caprese':[17,22,8],
  'b-chickpineapple':[32,22,22],'b-tabbouleh':[6,12,35],'b-funchoza':[25,10,70],'b-vegsour':[4,9,10]};
-function macOf(id){var r=R[id];var k=r&&r.src||id;return MAC[k]||(R[k]&&R[k].mac)||null}
+function macOf(id){var r=R[id];var k=r&&r.src||id;return (R[k]&&R[k].mac)||MAC[k]||null}
 function bju(id,kcal){var m=macOf(id);if(!m||!kcal)return null;var t=4*m[0]+9*m[1]+4*m[2];return [Math.round(m[0]*kcal/t),Math.round(m[1]*kcal/t),Math.round(m[2]*kcal/t)]}
 function bjuC(id,kcal){var b=bju(id,kcal);return b?' <small class="bju">Б'+b[0]+' Ж'+b[1]+' У'+b[2]+'</small>':''}
 function kbjuBlock(id){if(!PRIV)return '';var k=kcalPair(id);if(!k)return '';var bm=bju(id,k.m),bp=bju(id,k.p);
   var row=function(n,cls,kc,b){return '<tr><td class="n '+cls+'">'+n+'</td><td>'+kc+'</td><td>'+(b?b[0]:'—')+'</td><td>'+(b?b[1]:'—')+'</td><td>'+(b?b[2]:'—')+'</td></tr>'};
   return '<div class="tbl kbju"><table><thead><tr><th>Порция</th><th>Ккал</th><th>Белки</th><th>Жиры</th><th>Углев.</th></tr></thead><tbody>'+
-    row('Миша','h',k.m,bm)+row('Поля','s',k.p,bp)+'</tbody></table></div><p class="legend">Примерно, без салата. Граммы — в готовой порции.</p>'}
+    row('Миша','h',k.m,bm)+row('Поля','s',k.p,bp)+'</tbody></table></div>'+(k.p>650?'<p class="legend s">Порция Поли больше её нормы на ужин (около 600 ккал): можно положить поменьше гарнира или соуса.</p>':'')+nutNote(id)}
+function nutNote(id){var r=R[id];var s=r&&r.src?R[r.src]:r;var t=s&&s.nut;
+  if(!t)return '<p class="legend">Примерная оценка, без салата.</p>';
+  return '<p class="legend">Посчитано по ингредиентам рецепта ('+t.k.toFixed(0)+' ккал на всё блюдо, '+String(s.nutN).replace('.',',')+' порц.), без салата.'+(t.oil?' Учтена 1 ст. л. масла для жарки.':'')+(t.unk.length?' Не учтено: '+esc(t.unk.join(', '))+'.':'')+'</p>'}
 
 /* Мультиварка RED Solution RMC-M40S (чаша 5 л) и планетарный миксер */
 var MC={
@@ -2097,6 +2102,181 @@ function grainTip(r){var g=(r.ing||[]).map(function(a){return a[0]}).join(' ');
 Object.keys(R).forEach(function(k){if(MC[k])R[k].mcFull=true});
 function techBlock(id){var r=R[id];if(!r||r.leftover)return '';var mc=MC[id]||r.mc||grainTip(r),mx=MX[id]||'';if(!mc&&!mx)return '';
   return '<section class="blk"><h3>Техника</h3>'+(mc?'<div class="tech"><b>Мультиварка RED Solution</b><p>'+esc(mc)+'</p></div>':'')+(mx?'<div class="tech"><b>Планетарный миксер</b><p>'+esc(mx)+'</p></div>':'')+'</section>'}
+
+/* ---------- Точный расчёт КБЖУ по ингредиентам ---------- */
+/* [шаблон названия, ккал, белки, жиры, углеводы на 100 г, вес единиц {шт, банка, ...}, съедобная часть] — порядок важен: частное раньше общего */
+var NUT=[
+ [/^соль|^перец горошком|^чёрный перец|^лавровый|^зира|^паприка|^копчёная паприка|^куркума|^хмели|^сухой базилик|^сушён|^розмарин|^имбирь|^карри|^острый перец|^специи|^кинза, чеснок|^вода|^бульон|^аджика|^уксус|^орегано|^барбарис|^тимьян|^мускатн/i,0,0,0,0],
+ [/^растительное масло|^оливковое масло|^масло/i,899,0,99.9,0,{'ст. л.':17,'ч. л.':5,'для жарки':30}],
+ [/^сливочное масло/i,748,0.5,82.5,0.8],
+ [/^говядина на кости/i,187,18.6,12.4,0,null,0.6],
+ [/^говяжий стейк/i,250,19,19,0],
+ [/^говядина \(вырезка/i,160,21,8,0],
+ [/^говяжий фарш 10/i,175,20,10,0],
+ [/^фарш говяжий/i,220,18,16,0],
+ [/^фарш смешанный/i,260,16,22,0],
+ [/^фарш индейки/i,160,18,10,0],
+ [/^куриный фарш/i,143,17.4,8.1,0],
+ [/^говядина/i,187,18.6,12.4,0],
+ [/^свиная вырезка/i,142,19.4,7.1,0],
+ [/^свиная шея|^свиная корейка/i,267,16,22.5,0],
+ [/^свиные рёбрышки/i,321,15.2,29,0,null,0.7],
+ [/^копчёные рёбрышки/i,380,12,36,0,null,0.75],
+ [/^бекон/i,410,14,39,0],
+ [/^копчёная колбаса/i,300,16,26,1],
+ [/^ветчина/i,130,18,6,1],
+ [/^филе куриного бедра|^куриное бедро без кости/i,177,18.5,11,0],
+ [/^куриное филе/i,113,23.6,1.9,0.4],
+ [/^куриные бёдра|^куриные окорочка/i,211,17,16,0,null,0.75],
+ [/^куриные голени/i,180,18,12,0,null,0.7],
+ [/^куриные крылья/i,186,19,12,0,null,0.65],
+ [/^цыплёнок/i,190,18,13,0,null,0.65],
+ [/^курица/i,177,18.5,11,0],
+ [/^филе грудки индейки|^филе индейки/i,115,24,2,0],
+ [/^лосось \(суповой/i,150,19,8,0],
+ [/^филе лосося|^филе сёмги|^лосось/i,208,20,13,0],
+ [/^филе трески|^филе минтая|^филе хека|^филе тилапии|^филе белой рыбы/i,78,17.5,0.8,0],
+ [/^скумбрия/i,191,18,13.2,0,null,0.6],
+ [/^кальмары/i,100,18,2.2,2],
+ [/^креветки/i,95,20,1,0],
+ [/^морской коктейль/i,90,15,2,2],
+ [/^сельдь/i,217,17,16.5,0],
+ [/^консервированная сайра|^тунец|^сайра/i,140,22,6,0,{'банка':170,'банки':170}],
+ [/^крабовые палочки/i,88,6,1,15],
+ [/^яйц/i,157,12.7,11.5,0.7,{'шт.':55}],
+ [/^творог/i,145,17,7,2],
+ [/^пармезан/i,392,35.8,25.8,3.2],
+ [/^моцарелла/i,253,18,19.5,1],
+ [/^фета/i,264,14,21,4],
+ [/^плавленый сыр/i,257,10,22,5],
+ [/^сыр чеддер|^тёртый сыр|^твёрдый сыр|^сыр/i,364,24,29.5,0.3,{'ломтика':20}],
+ [/^сметана/i,158,2.6,15,3,{'ст. л.':20}],
+ [/^сливки 10%/i,118,3,10,4],
+ [/^сливки/i,160,2.8,15,4],
+ [/^молоко/i,52,2.9,2.5,4.7],
+ [/^майонез/i,629,0.9,67,3.9,{'ст. л.':20}],
+ [/^греческий йогурт|^йогурт/i,73,8,3,3.6,{'ст. л.':25}],
+ [/^мука/i,334,10,1.2,70,{'ст. л.':12}],
+ [/^крахмал/i,343,0.1,0,85,{'ст. л.':12,'ч. л.':5}],
+ [/^сахар/i,399,0,0,99.8,{'ст. л.':20,'щепотка':2}],
+ [/^мёд/i,324,0.8,0,80,{'ст. л.':30,'ч. л.':10}],
+ [/^рис отварной/i,344,6.7,0.7,78.9],
+ [/^рис/i,344,6.7,0.7,78.9],
+ [/^гречка/i,313,12.6,3.3,62],
+ [/^булгур/i,342,12.3,1.3,63],
+ [/^киноа/i,368,14,6,64],
+ [/^перловка/i,320,9.3,1.1,73],
+ [/^колотый горох/i,298,20.5,2,49.5],
+ [/^красная чечевица/i,318,24,1.5,48],
+ [/^кускус/i,376,12.8,0.6,77],
+ [/^гречневая лапша/i,335,14,1,70],
+ [/^фунчоза/i,331,0.7,0.5,84],
+ [/^готовое тесто/i,250,7,4,46],
+ [/^паста|^макароны|^спагетти|^листы лазаньи|^мелкая паста|^лапша|^тонкая лапша/i,350,12,1.5,71],
+ [/^панировочные сухари/i,347,9.7,1.9,72,{'ст. л.':10}],
+ [/^батон/i,262,7.5,2.9,51,{'ломтика':25,'ломтиков':25}],
+ [/^ржаной хлеб/i,210,6.6,1.2,42,{'ломтика':30,'ломтиков':30}],
+ [/^цельнозерновой хлеб|^хлеб/i,247,8.5,3.4,46,{'ломтика':30,'ломтиков':30}],
+ [/^лаваш/i,275,9,1.2,56,{'шт.':60}],
+ [/^пшеничные тортильи|^тортильи/i,300,8,7,50,{'шт.':40}],
+ [/^булочки/i,270,8.5,4,50,{'шт.':70}],
+ [/^варёный картофель|^молодой картофель|^картофель/i,77,2,0.4,16.3,{'шт.':120}],
+ [/^варёная морковь|^морковь/i,35,1.3,0.1,6.9,{'шт.':80}],
+ [/^красный лук|^лук/i,41,1.4,0,8.2,{'шт.':100}],
+ [/^чеснок/i,143,6.5,0.5,30,{'зубчик':5,'зубчика':5,'головка':45}],
+ [/^кабачок, перец/i,28,1,0.2,5.5],
+ [/^квашеная капуста/i,23,1.8,0.1,4.4],
+ [/^краснокочанная/i,31,1.4,0.2,7],
+ [/^салат романо|^салат|^микс салатных/i,15,1.4,0.2,2.9,{'кочан':350,'несколько листьев':40}],
+ [/^капуста/i,28,1.8,0.1,4.7],
+ [/^свёкла|^варёная свёкла/i,43,1.5,0.1,8.8,{'шт.':180}],
+ [/^кабач/i,24,0.6,0.3,4.6,{'шт.':300}],
+ [/^баклажан/i,24,1.2,0.1,4.5,{'шт.':300}],
+ [/^тыквенные семечки/i,559,30,49,10.7],
+ [/^тыква/i,26,1,0.1,6.5],
+ [/^болгарский перец|^сельдерей или перец/i,27,1.3,0,5.3,{'шт.':150}],
+ [/^сельдерей/i,16,0.7,0.2,3,{'стебель':40}],
+ [/^томаты в собственном соку/i,25,1.1,0.2,4.5],
+ [/^томатная паста/i,99,4.8,0.5,19,{'ст. л.':25}],
+ [/^томатный соус/i,50,1.5,1,8],
+ [/^кетчуп/i,100,1.5,0,24,{'ст. л.':20}],
+ [/^помидоры черри|^черри|^томаты черри/i,18,0.9,0.2,3.9],
+ [/^помидор|^томаты/i,20,0.6,0.2,4.2,{'шт.':120}],
+ [/^маринованные огурцы|^солёные огурцы/i,13,0.8,0.1,1.7,{'шт.':60}],
+ [/^огур/i,15,0.8,0.1,2.8,{'шт.':120}],
+ [/^брокколи/i,34,2.8,0.4,6.6],
+ [/^стручковая фасоль/i,31,2,0.2,7],
+ [/^шпинат/i,23,2.9,0.4,3.6],
+ [/^шампиньоны/i,27,4.3,1,0.1],
+ [/^авокадо/i,160,2,14.7,8.5,{'шт.':150}],
+ [/^лимонный сок/i,16,0.4,0.1,3.2,{'ст. л.':15,'ч. л.':5}],
+ [/^лимон|^уксус или лимонный/i,29,0.9,0.1,3,{'шт.':100}],
+ [/^лайм/i,30,0.7,0.2,7.7,{'шт.':60}],
+ [/^редис/i,19,1.2,0.1,3.4,{'пучок':200}],
+ [/^укроп|^петрушка|^зелень|^мята|^базилик|^зелёный лук/i,40,3,0.4,6,{'пучок':40,'пучка':40}],
+ [/^руккола/i,25,2.6,0.7,2],
+ [/^красная фасоль|^фасоль консервированная/i,100,6.7,0.5,17,{'банка':240}],
+ [/^нут консервированный/i,139,7,2.6,22,{'банка':240}],
+ [/^кукуруза/i,70,2.2,1,13,{'банка':200,'банки':200}],
+ [/^зелёный горошек/i,60,3.5,0.2,10,{'банка':240,'банки':240}],
+ [/^замороженный горошек/i,73,5,0.4,13.5],
+ [/^ананасы/i,60,0.3,0.1,15,{'банка':350}],
+ [/^маслины|^оливки/i,150,1,15,3],
+ [/^каперсы/i,23,2.4,0.9,4.9,{'ст. л.':10}],
+ [/^кокосовое молоко/i,230,2.3,24,3.3],
+ [/^паста карри/i,120,3,8,10,{'ст. л.':15}],
+ [/^грецкие орехи/i,654,15,65,7],
+ [/^кунжут/i,573,17.7,49.7,11.6,{'ст. л.':10}],
+ [/^чернослив/i,256,2.3,0.7,57.5],
+ [/^ягоды/i,45,1,0.4,9],
+ [/^соевый соус/i,53,6,0,6.6,{'ст. л.':18}],
+ [/^рисовый уксус|^бальзамик/i,88,0.5,0,17,{'ст. л.':15,'ч. л.':5}],
+ [/^горчица/i,162,5.7,6.4,22,{'ст. л.':15,'ч. л.':5}],
+ [/^борщ/i,50,2.5,2.5,4.5]
+];
+var UNIT_DEF={'ст. л.':15,'ч. л.':5,'щепотка':1,'ломтика':30,'ломтиков':30,'пучок':40,'пучка':40,'банка':300,'банки':300,'шт.':100,'зубчик':5,'зубчика':5,'головка':45,'стебель':40,'кочан':800,'веточки':0};
+var FRN={'½':.5,'¼':.25,'¾':.75,'⅓':1/3,'⅔':2/3};
+function nNum(s){s=String(s).trim();var m=s.match(/^(\d+(?:[.,]\d+)?)?\s*([½¼¾⅓⅔])?/);var v=(m[1]?parseFloat(m[1].replace(',','.')):0)+(m[2]?FRN[m[2]]:0);return m[0].trim()?v:NaN}
+function findNut(name){var n=name.split(' или ')[0].replace(/\s*\(.*?\)\s*/g,' ').trim();for(var i=0;i<NUT.length;i++)if(NUT[i][0].test(n))return NUT[i];return null}
+/* граммы по строке количества */
+function grams(nut,q){q=String(q||'').trim();if(!q||/по вкусу|к подаче|по желанию|на гарнир/.test(q))return 0;
+  if(/для жарки/.test(q))return 30;if(/несколько листьев/.test(q))return 40;if(/щепотка/.test(q))return 1;
+  var gm=q.match(/(\d+(?:[.,]\d+)?)\s*(кг|г|мл|л)(?![а-яё])/gi);
+  if(gm){var last=gm[gm.length-1].match(/(\d+(?:[.,]\d+)?)\s*(кг|г|мл|л)/i);var v=parseFloat(last[1].replace(',','.'));var u=last[2].toLowerCase();
+    if(/(\d+(?:[.,]\d+)?)\s*[–-]\s*(\d+(?:[.,]\d+)?)\s*(кг|г|мл|л)/i.test(q)){var r=q.match(/(\d+(?:[.,]\d+)?)\s*[–-]\s*(\d+(?:[.,]\d+)?)/);v=(parseFloat(r[1].replace(',','.'))+parseFloat(r[2].replace(',','.')))/2}
+    return u==='кг'||u==='л'?v*1000:v}
+  var tot=0;q.split('+').forEach(function(part){part=part.replace(/^по\s+/,'').trim();
+    var r=part.match(/^([\d.,½¼¾⅓⅔]+)\s*[–-]\s*([\d.,½¼¾⅓⅔]+)\s*(.*)$/),v,u;
+    if(r){v=(nNum(r[1])+nNum(r[2]))/2;u=r[3]}else{var m=part.match(/^([\d.,]*\s*[½¼¾⅓⅔]?)\s*(.*)$/);v=nNum(m[1]);u=m[2]}
+    if(!(v>0))return;u=(u||'').replace(/\s*\(.*$/,'').replace(/,.*$/,'').trim();
+    var key=Object.keys(UNIT_DEF).filter(function(k){return u.indexOf(k)===0}).sort(function(a,b){return b.length-a.length})[0];
+    var w=(nut&&nut[5]&&key&&nut[5][key]!=null)?nut[5][key]:(key?UNIT_DEF[key]:100);tot+=v*w});
+  return tot}
+/* КБЖУ всего блюда */
+function nutCalc(r){var t={k:0,p:0,f:0,c:0,unk:[],oil:false};if(!r||!r.ing)return null;var hasOil=false;
+  r.ing.forEach(function(a){var name=String(a[0]),q=String(a[1]||'');
+    var parts=[[name,q]];
+    if(/\//.test(q)||/^по\s/.test(q)){var names=name.split(/,\s*|\s+и\s+/),qs=q.replace(/^по\s+/,'').split('/');
+      if(names.length>1)parts=names.map(function(n,i){return [n,(qs[i]||qs[0]).trim()]})}
+    parts.forEach(function(pp){var nu=findNut(pp[0]);if(/масл/i.test(pp[0]))hasOil=true;
+      if(!nu){if(grams(null,pp[1])>0)t.unk.push(pp[0]);return}
+      var g=grams(nu,pp[1])*(nu[6]||1),k=g/100;t.k+=nu[1]*k;t.p+=nu[2]*k;t.f+=nu[3]*k;t.c+=nu[4]*k})});
+  var st=(r.steps||[]).map(function(s){return s[1]}).join(' ');
+  if(!hasOil&&/обжар|жарьте|на масле|маслом/i.test(st)){t.oil=true;t.k+=899*.15;t.f+=99.9*.15}
+  return t}
+function servesN(r){var s=String(r.serves||'');var m=s.match(/(\d+)\s*[–-]\s*(\d+)\s*порц/);if(m)return (+m[1]+ +m[2])/2;m=s.match(/(\d+)\s*порц/);return m?+m[1]:3}
+function lunchboxDish(r){return /обед/.test(r.serves||'')&&servesN(r)===3}
+/* применить ко всем рецептам: калорийность порции и Б/Ж/У порции */
+function nutOne(k){var r=R[k];if(!r||r.leftover||!r.ing)return;var t=nutCalc(r);if(!t||!t.k)return;var N=servesN(r);
+  r.nut=t;r.nutN=N;r.kcalp=Math.round(t.k/N);r.mac=[t.p/N,t.f/N,t.c/N]}
+function applyNut(){Object.keys(R).forEach(nutOne)}
+/* у блюд первой недели (свои порции Миши и Поли) — пересчитать по соотношению из рецепта */
+function nutBase(){Object.keys(R).forEach(function(k){var r=R[k];if(!r.nut||!r.kcal||!r.kcal[0]||!r.kcal[1])return;
+  if(!r.kcal0)r.kcal0=r.kcal.slice();var rr=r.kcal0[0]/r.kcal0[1],T=r.nut.k,N=r.nutN,him,her;
+  if(N===2){her=T/(rr+1);him=rr*her}else if(lunchboxDish(r)){her=T/(rr+2);him=rr*her}else{var p=T/N;him=p*2*rr/(rr+1);her=p*2/(rr+1)}
+  r.kcal=[Math.round(him/10)*10,Math.round(her/10)*10]});
+  Object.keys(R).forEach(function(k){var r=R[k];if(r.leftover&&R[r.src]&&R[r.src].kcal&&R[r.src].kcal[1])r.kcal=[null,R[r.src].kcal[1]]})}
+applyNut();
 
 /* ---------- Комментарии к блюдам: сколько угодно, с именем и датой ---------- */
 var ME=store.get('me',null);
