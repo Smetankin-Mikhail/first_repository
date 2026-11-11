@@ -324,6 +324,13 @@ nav.tabs .wrap{grid-template-columns:repeat(4,1fr)}
 .cmwho{display:flex;gap:6px}
 #cm-text{font:inherit;font-size:14px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--bg);color:var(--ink);resize:vertical;width:100%}
 .cms .btn{align-self:flex-start}
+.bju{font-size:11px;opacity:.85;font-weight:600;white-space:nowrap}
+.tech{background:var(--sunken);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.tech b{font-size:13px;color:var(--herb)}
+.tech p{margin:4px 0 0;font-size:14px}
+.kbju{margin-top:10px}
+.kbju td,.kbju th{text-align:center;font-variant-numeric:tabular-nums}
+.kbju td.n{text-align:left;font-weight:700}
 </style>
 
 </head>
@@ -534,7 +541,7 @@ function renderDay(){
     h+='<button type="button" class="meal" data-r="'+m[2]+'"><div class="row"><span class="tag">'+m[0]+'</span><span class="pill '+(m[1]==='her'?'her':'both')+'">'+WHO[m[1]]+'</span></div>'+
       '<h3>'+esc(r.title)+(r.leftover?' <span style="font-weight:500;color:var(--muted)">— вчерашний ужин</span>':'')+'</h3>'+
       '<div class="meta"><span>'+clock.replace('width="15"','width="13"').replace('height="15"','height="13"')+' '+esc(r.time)+'</span>'+
-      (PRIV?(portionMeta(m[2])+(r.kcal[0]?'<span class="h">Мише <i>≈ '+kc(m[2],r.kcal[0])+'</i> ккал</span>':'')+(r.kcal[1]?'<span class="s">Поле <i>≈ '+kc(m[2],r.kcal[1])+'</i> ккал</span>':'')):'')+ratingText(m[2])+'</div>'+
+      (PRIV?(portionMeta(m[2])+(r.kcal[0]?'<span class="h">Мише <i>≈ '+kc(m[2],r.kcal[0])+'</i> ккал'+bjuC(m[2],kc(m[2],r.kcal[0]))+'</span>':'')+(r.kcal[1]?'<span class="s">Поле <i>≈ '+kc(m[2],r.kcal[1])+'</i> ккал'+bjuC(m[2],kc(m[2],r.kcal[1]))+'</span>':'')):'')+ratingText(m[2])+'</div>'+
       (r.salad&&!r.leftover?'<p>+ '+esc(r.salad.t.toLowerCase())+'</p>':'')+
       '<div class="go"><span>'+(r.leftover?'Как собрать и разогреть':'Открыть рецепт')+'</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div></button>';
   });
@@ -549,7 +556,7 @@ function openRecipe(id){
    '<div class="facts"><div class="fact"><b>Время</b><span>'+esc(r.time.split(',')[0])+'</span></div>'+portionFacts(id)+
    (PRIV?((r.kcal[0]?'<div class="fact h"><b>Мише</b><span>≈ '+kc(id,r.kcal[0])+'</span></div>':'')+
    (r.kcal[1]?'<div class="fact s"><b>Поле</b><span>≈ '+kc(id,r.kcal[1])+'</span></div>':'')):'')+'</div>'+
-   (PRIV?'<p class="legend">Калорийность блюда на одну порцию, без салата.</p>':'')+'</div>';
+   kbjuBlock(id)+'</div>';
   if(r.ing){
     h+='<section class="blk"><h3>Ингредиенты</h3>'+scaleBanner(id)+'<div class="tbl"><table><thead><tr><th>Продукт</th><th>'+(PRIV?'Всего':'Количество')+'</th>'+(PRIV&&(r.cols||r.ing.some(function(a){return a[2]}))?'<th class="h">Мише</th><th class="s">Поле</th>':'')+'</tr></thead><tbody>'+
      r.ing.map(function(a,ii){var split=PRIV&&(r.cols||r.ing.some(function(z){return z[2]}));var f=scaleOf(id),bn=baseNum(a[1]),two=(scaleObj(id)||{}).i<0;
@@ -559,6 +566,7 @@ function openRecipe(id){
   h+='<section class="blk"><h3>'+(r.leftover?'Как собрать':'Приготовление')+' · отмечайте шаги касанием</h3><ol class="steps">'+
     r.steps.map(function(s,i){var sp=stepFor(id,s);return '<li data-s="'+i+'" class="'+(done.indexOf(i)>-1?'done':'')+'"><div class="st"><b>'+esc(sp[0])+'</b><p>'+esc(sp[1])+'</p>'+
       (s[2]?'<button type="button" class="timer" data-t="'+s[2]+'" data-l="'+esc(stepFor(id,s)[0])+'">'+clock+' Таймер '+mins(s[2])+'</button>':'')+'</div></li>'}).join('')+'</ol></section>';
+  h+=techBlock(id);
   if(r.lunchbox)h+='<section class="blk"><h3>Хранение и ланчбокс</h3><div class="box"><p>'+esc(r.lunchbox)+'</p></div></section>';
   if(r.salad&&!r.leftover)h+='<section class="blk"><h3>Свежие овощи к блюду</h3><div class="salad"><h4>'+esc(r.salad.t)+'</h4>'+(PRIV?'<span class="k">'+esc(r.salad.k)+'</span>':'')+'<ul>'+r.salad.i.map(function(x){return '<li>'+esc(pubTxt(x))+'</li>'}).join('')+'</ul><p>'+esc(r.salad.s)+'</p></div></section>';
   h+='<section class="blk"><h3>Как вам блюдо?</h3><div class="rate" id="rate-box">'+rateBlock(id)+'</div></section>';
@@ -691,6 +699,7 @@ function addAiRecipe(id,o){
    lunchbox:o.lunchbox||'',buy:o.buy||[],
    salad:o.salad&&o.salad.title?{t:o.salad.title,k:'',i:o.salad.items||[],s:o.salad.how||''}:null};
   var R0=R[id];if(o.kcal_per_portion)R0.kcalp=Math.round(+o.kcal_per_portion);
+  if(o.protein_g&&o.fat_g!=null&&o.carbs_g)R0.mac=[+o.protein_g,+o.fat_g,+o.carbs_g];if(o.multicooker)R0.mc=String(o.multicooker);
   if(o.user){R0.book=true;R0.user=true;R0.tag=o.tag;R0.mins=+o.mins||null}
   delete R['l-'+id];mkLeftover(id)}
 function loadAi(){Object.keys(AIR).forEach(function(id){try{addAiRecipe(id,AIR[id])}catch(e){}})}
@@ -755,7 +764,7 @@ var AI_SCHEMA={type:'OBJECT',properties:{
   reply:STR,from_home:{type:'BOOLEAN'},
   ops:{type:'ARRAY',items:{type:'OBJECT',properties:{
     op:{type:'STRING',enum:['swap','replace']},buy:{type:'ARRAY',items:STR},day:STR,meal:{type:'STRING',enum:['Обед','Ужин']},day2:STR,meal2:{type:'STRING',enum:['Обед','Ужин']},
-    recipe:{type:'OBJECT',properties:{title:STR,time:STR,serves:STR,kcal_per_portion:{type:'NUMBER'},
+    recipe:{type:'OBJECT',properties:{title:STR,time:STR,serves:STR,kcal_per_portion:{type:'NUMBER'},protein_g:{type:'NUMBER'},fat_g:{type:'NUMBER'},carbs_g:{type:'NUMBER'},multicooker:STR,
       ingredients:{type:'ARRAY',items:{type:'OBJECT',properties:{name:STR,qty:STR},required:['name','qty']}},
       steps:{type:'ARRAY',items:{type:'OBJECT',properties:{title:STR,text:STR,timer_min:{type:'NUMBER'}},required:['title','text']}},
       salad:{type:'OBJECT',properties:{title:STR,items:{type:'ARRAY',items:STR},how:STR}},
@@ -782,6 +791,7 @@ var AI_SYS=['Ты помощник по домашнему меню на нед�
  '— reply должен совпадать с ops: если ops — перестановка, так и напиши; про магазин пиши только если buy не пустой.',
  '— В будни (пн–пт) блюдо должно готовиться за 30–40 минут, в выходные можно дольше.',
  '— Если на следующий день в меню есть обед Поли в ланчбокс, новый ужин готовится на 3 порции (ужин на двоих и обед Поли на завтра) и должен хорошо переносить разогрев в микроволновке. Тогда заполни lunchbox: как хранить и собрать порцию Поли.',
+ '— Дома есть мультиварка RED Solution RMC-M40S (программы Жарка, Тушение, Суп, Плов, Рис/Крупы, Томление, Выпечка, Пар; есть отложенный старт) и планетарный миксер. Если блюдо удобно готовить в мультиварке, заполни multicooker. Укажи protein_g, fat_g, carbs_g на порцию.',
  '— Новый рецепт сбалансированный: белок, гарнир или крупа, овощи. Обязательно добавь свежие овощи или салат в salad. Порция ужина — примерно 600–750 ккал, укажи kcal_per_portion.',
  '— Учитывай оценки блюд: блюда с высокими оценками можно повторять, с низкими — избегай похожих.',
  '— ingredients — количества на всё блюдо целиком, в граммах, штуках или ложках. steps — 4–8 понятных шагов, у шагов с ожиданием (варка, запекание, тушение) укажи timer_min.',
@@ -1837,7 +1847,7 @@ function portionInfo(id){var r=R[id];if(!r)return null;var s=r.src?R[r.src]:r;if
 function fracTxt(x){var w=Math.floor(x),q=Math.round((x-w)*4),fr=['','¼','½','¾'][q]||'';if(q===4){w++;fr=''}
   if(x===1)return 'порция';return (w?String(w):'')+fr+' порции'}
 function portionMeta(id){var r=R[id];if(!PRIV||(r&&r.kcal&&r.kcal[0]))return '';var pi=portionInfo(id);if(!pi)return '';
-  return '<span class="h">Мише <i>≈ '+pi.himK+'</i> ккал</span><span class="s">Поле <i>≈ '+pi.herK+'</i> ккал</span>'}
+  return '<span class="h">Мише <i>≈ '+pi.himK+'</i> ккал'+bjuC(id,pi.himK)+'</span><span class="s">Поле <i>≈ '+pi.herK+'</i> ккал'+bjuC(id,pi.herK)+'</span>'}
 function portionFacts(id){var r=R[id];if(!PRIV||(r&&r.kcal&&r.kcal[0]))return '';var pi=portionInfo(id);if(!pi)return '';
   return '<div class="fact h"><b>Мише · '+fracTxt(pi.him)+'</b><span>≈ '+pi.himK+'</span></div><div class="fact s"><b>Поле · '+fracTxt(pi.her)+'</b><span>≈ '+pi.herK+'</span></div>'}
 function hiddenDish(k){var r=R[k];return !!EXTRA['hide-'+(r&&r.src||k)]}
@@ -1848,12 +1858,12 @@ var BK={f:'all',q:'',quick:false,add:null}; // add: {busy, text, res, err}
 function bookList(){return Object.keys(R).filter(function(k){var r=R[k];return r.book||(!r.leftover&&!r.ai&&!/^b-|^l-/.test(k)&&r.ing)})}
 function renderBook(){var el=$('v-book');if(!el)return;var q=BK.q.trim().toLowerCase();
   var nHid=bookList().filter(hiddenDish).length;if(BK.f==='hidden'&&!nHid)BK.f='all';
-  var list=bookList().filter(function(k){var r=R[k];if(BK.f==='hidden')return hiddenDish(k);if(hiddenDish(k))return false;return (BK.f==='all'||r.tag===BK.f||(BK.f==='mine'&&r.user))&&(!BK.quick||(r.mins||parseInt(r.time)||99)<=30)&&(!q||r.title.toLowerCase().indexOf(q)>-1||r.ing.some(function(a){return a[0].toLowerCase().indexOf(q)>-1}))})
+  var list=bookList().filter(function(k){var r=R[k];if(BK.f==='hidden')return hiddenDish(k);if(hiddenDish(k))return false;return (BK.f==='all'||r.tag===BK.f||(BK.f==='mine'&&r.user)||(BK.f==='mc'&&(MC[k]||r.mc)))&&(!BK.quick||(r.mins||parseInt(r.time)||99)<=30)&&(!q||r.title.toLowerCase().indexOf(q)>-1||r.ing.some(function(a){return a[0].toLowerCase().indexOf(q)>-1}))})
     .sort(function(a,b){return (disliked(a)-disliked(b))||(avg(DATA.ratings[b])-avg(DATA.ratings[a]))||R[a].title.localeCompare(R[b].title,'ru')});
   var focus=document.activeElement&&document.activeElement.id;
   var h='<div class="dayhead"><h2>Книга рецептов</h2><p>'+bookList().length+' блюд. Нажмите, чтобы открыть рецепт.</p></div>'+
    '<input id="bk-q" class="bkq" type="search" placeholder="Поиск: название или продукт, например «курица»" value="'+esc(BK.q)+'">'+
-   '<div class="chips">'+[['all','Все'],['veg','Без мяса'],['fish','Рыба'],['bird','Птица'],['meat','Мясо'],['soup','Супы'],['salad','Салаты'],['mine','Наши']].concat(nHid?[['hidden','Скрытые · '+nHid]]:[]).map(function(c){return '<button type="button" class="chip'+(BK.f===c[0]?' on':'')+'" data-bkf="'+c[0]+'">'+c[1]+'</button>'}).join('')+
+   '<div class="chips">'+[['all','Все'],['veg','Без мяса'],['fish','Рыба'],['bird','Птица'],['meat','Мясо'],['soup','Супы'],['salad','Салаты'],['mc','Мультиварка'],['mine','Наши']].concat(nHid?[['hidden','Скрытые · '+nHid]]:[]).map(function(c){return '<button type="button" class="chip'+(BK.f===c[0]?' on':'')+'" data-bkf="'+c[0]+'">'+c[1]+'</button>'}).join('')+
    '<button type="button" class="chip'+(BK.quick?' on':'')+'" data-bkq="1">До 30 минут</button></div>'+addPanel();
   h+=list.length?'<div class="plist">'+list.map(function(k){var r=R[k],pi=portionInfo(k),d=disliked(k);
     return '<div class="pitem bk'+(d?' dis':'')+'"><button type="button" class="bkopen" data-r="'+k+'"><span>'+(r.tag?TAGS[r.tag]+' · ':'')+esc(r.time)+(PRIV&&pi?' · ≈ '+pi.p+' ккал':'')+ratingText(k)+(cmCount(k)?' · 💬 '+cmCount(k):'')+'</span><b>'+esc(r.title)+'</b>'+
@@ -1876,7 +1886,7 @@ function addPanel(){var A=BK.add;
 var REC_SCHEMA={type:'OBJECT',properties:{title:STR,tag:{type:'STRING',enum:['veg','fish','bird','meat','soup','salad']},mins:{type:'NUMBER'},time:STR,serves:STR,kcal_per_portion:{type:'NUMBER'},
   ingredients:{type:'ARRAY',items:{type:'OBJECT',properties:{name:STR,qty:STR},required:['name','qty']}},
   steps:{type:'ARRAY',items:{type:'OBJECT',properties:{title:STR,text:STR,timer_min:{type:'NUMBER'}},required:['title','text']}},
-  salad:{type:'OBJECT',properties:{title:STR,items:{type:'ARRAY',items:STR},how:STR}},lunchbox:STR},
+  salad:{type:'OBJECT',properties:{title:STR,items:{type:'ARRAY',items:STR},how:STR}},lunchbox:STR,multicooker:STR,protein_g:{type:'NUMBER'},fat_g:{type:'NUMBER'},carbs_g:{type:'NUMBER'}},
   required:['title','tag','mins','time','serves','kcal_per_portion','ingredients','steps']};
 var REC_SYS=['Ты оформляешь домашний рецепт для книги рецептов пары. Отвечай только по-русски, JSON по схеме.',
  'Пользователь пишет название блюда или вставляет текст рецепта. Если это текст рецепта — сохрани его суть и количества, только упорядочи. Если только название — составь проверенный классический рецепт.',
@@ -1885,7 +1895,9 @@ var REC_SYS=['Ты оформляешь домашний рецепт для к�
  'mins — общее время в минутах; time — коротко, например «35 мин» или «1 ч, из них 20 мин активно».',
  'kcal_per_portion — приблизительная калорийность одной порции без салата, целое число.',
  'ingredients — на всё блюдо, с количествами в граммах, штуках, ложках. steps — 3–7 понятных шагов, у шагов с ожиданием укажи timer_min.',
- 'salad — свежие овощи или салат к блюду. lunchbox — как хранить и разогреть порцию на завтра.'].join('\n');
+ 'salad — свежие овощи или салат к блюду. lunchbox — как хранить и разогреть порцию на завтра.',
+ 'protein_g, fat_g, carbs_g — белки, жиры, углеводы одной порции в граммах.',
+ 'multicooker — если блюдо удобно готовить в мультиварке RED Solution RMC-M40S (чаша 5 л; программы: Жарка, Тушение, Суп, Плов, Рис/Крупы, Томление, Выпечка, Пар, Варка, Паста, Мультиповар 35–180 °C), опиши кратко: какие программы, время, порядок закладки; иначе пустая строка.'].join('\n');
 function bookAsk(extra){var A=BK.add;var t=(A.text||'').trim();if(!t||A.busy)return;A.busy=true;A.err='';A.res=null;renderBook();
   aiCall('',{sys:REC_SYS,schema:REC_SCHEMA,text:t+(extra||'')}).then(function(o){A.busy=false;
       if(!o||!o.title||!o.steps||!o.steps.length){A.err='ИИ не смог оформить рецепт. Попробуйте написать подробнее.'}else A.res=o;renderBook()})
@@ -1987,12 +1999,12 @@ function kcalPair(id){var r=R[id];if(!r)return null;
   if(r.kcal&&r.kcal[0])return {m:kc(id,r.kcal[0]),p:kc(id,r.kcal[1])};
   var pi=portionInfo(id);if(!pi)return null;return {m:pi.himK,p:pi.herK}}
 function kcalLine(id){if(!PRIV)return '';var k=kcalPair(id);if(!k)return '';
-  return '<span class="h">Мише ≈ '+k.m+'</span> <span class="s">Поле ≈ '+k.p+(k.frac?' ('+k.frac+')':'')+'</span>'}
+  return '<span class="h">Мише ≈ '+k.m+bjuC(id,k.m)+'</span> <span class="s">Поле ≈ '+k.p+bjuC(id,k.p)+'</span>'}
 function viewSeg(){return '<div class="seg vseg" role="group" aria-label="Вид"><button type="button" data-mv="week" aria-pressed="'+(MV==='week')+'">Неделя</button><button type="button" data-mv="day" aria-pressed="'+(MV==='day')+'">День</button></div>'}
 function lunchRow(x,i){var m=herMeal(x);if(!m)return '';var r=R[m[2]],skip=noLunch(x.d);
   var src=r&&r.src&&R[r.src];var kk=PRIV&&!skip&&src?kcalPair(r.src):null;
   return '<div class="lrow'+(skip?' off':'')+'"><div class="lmain"><span class="tag">Обед Поли</span><b>'+(skip?'В столовой':'Ланчбокс: '+esc(src?src.title:(r?r.title:'—')))+'</b>'+
-    (kk?'<small class="s">≈ '+kk.p+' ккал</small>':'')+'</div><div class="lact">'+(!skip&&r?'<button type="button" class="lnk" data-r="'+m[2]+'">Как разогреть</button>':'')+
+    (kk?'<small class="s">≈ '+kk.p+' ккал'+bjuC(r.src,kk.p)+'</small>':'')+'</div><div class="lact">'+(!skip&&r?'<button type="button" class="lnk" data-r="'+m[2]+'">Как разогреть</button>':'')+
     '<button type="button" class="tog" data-nolunch="'+x.d+'">'+(skip?'Возьму обед':'Не беру обед')+'</button></div></div>'}
 function dinnerHint(i){var x=DAYS[i],nx=nextDay(i);if(!nx||x.d<TODAY)return '';var hm=herMeal(nx);if(!hm)return '';
   var dn=mealsOf(i).filter(function(m){return m[0]==='Ужин'})[0];if(!dn||!R[dn[2]])return '';var r=R[dn[2]];
@@ -2016,6 +2028,75 @@ document.addEventListener('click',function(e){var t;
   if((t=e.target.closest('[data-nolunch]'))){var d=t.dataset.nolunch;setExtra('nolunch-'+d,noLunch(d)?null:{v:1});return}
   if((t=e.target.closest('[data-sc23]'))){setScale(t.dataset.sc23,{i:-1,f:.7,v:'2 порции'});return}
   if(e.target.closest('#days [data-i]')&&MV!=='day'){MV='day';store.set('mview',MV)}},true);
+
+/* ---------- КБЖУ по порциям и советы для техники ---------- */
+/* Белки, жиры, углеводы на одну стандартную порцию (г); пересчитываются под калорийность порции Миши и Поли */
+var MAC={pasta:[45,22,85],turkey:[55,15,60],chili:[45,25,75],fajitas:[45,25,80],borscht:[25,20,40],sunlunch:[30,30,60],pork:[45,25,50],chicken:[40,25,55],
+ 'b-shakshuka':[28,28,40],'b-zucchinibake':[25,28,55],'b-salmon':[40,40,45],'b-codtomato':[35,8,60],'b-teriyaki':[42,15,75],'b-chickcutlet':[40,35,65],'b-porkstir':[38,30,70],'b-meatballs':[45,45,70],
+ 'b-lentilsoup':[25,10,85],'b-syrniki':[45,25,70],'b-mushrisotto':[20,25,85],'b-draniki':[15,30,75],'b-fishcakes':[35,22,60],'b-mackerel':[30,35,45],'b-shrimppasta':[35,25,85],'b-ukha':[30,15,30],
+ 'b-tunapasta':[35,15,80],'b-hakecheese':[40,15,55],'b-chickplov':[30,25,75],'b-chickcurry':[40,20,75],'b-chickcream':[45,30,90],'b-turkeysoba':[40,10,75],'b-chicksoup':[30,15,40],'b-shawarma':[40,30,65],
+ 'b-ovenchicken':[45,50,60],'b-kupecheskaya':[40,18,70],'b-chickstew':[35,30,45],'b-bolognese':[40,28,75],'b-meatplov':[28,25,70],'b-stroganoff':[40,45,60],'b-goulash':[35,25,70],'b-stuffedpep':[32,40,50],
+ 'b-lazygolub':[32,45,45],'b-burgers':[35,32,50],'b-porkchops':[40,35,45],'b-lasagna':[32,30,60],'b-caesar':[40,22,20],'b-greek':[7,22,10],'b-warmbeef':[35,22,18],'b-tunaegg':[30,15,30],
+ 'b-vinegret':[4,10,25],'b-olivie':[25,20,25],'b-coleslaw':[4,10,15],'b-beetfeta':[10,20,18],'b-shchi':[25,18,25],'b-solyanka':[22,32,15],'b-peasoup':[28,18,55],'b-rassolnik':[22,12,40],
+ 'b-cheesesoup':[28,20,35],'b-pumpkinsoup':[6,14,32],'b-mushsoup':[8,10,38],'b-kharcho':[30,22,30],'b-meatballsoup':[22,20,30],'b-minestrone':[12,8,48],'b-sweetsour':[40,12,95],'b-nuggets':[45,25,80],
+ 'b-frenchchicken':[50,35,50],'b-wings':[40,45,55],'b-turkeycutlet':[42,15,65],'b-chickmush':[45,22,70],'b-tabaka':[55,45,40],'b-chickquinoa':[50,12,55],'b-chickskewer':[45,35,40],'b-chakhokhbili':[40,40,20],
+ 'b-porkpotato':[35,55,60],'b-beefprunes':[45,30,85],'b-kotlety':[38,40,70],'b-navy':[38,32,90],'b-steak':[50,45,40],'b-carbonara':[35,35,80],'b-frenchmeat':[40,55,45],'b-pizza':[35,32,90],
+ 'b-porkkebab':[40,60,25],'b-lagman':[35,28,90],'b-ribs':[40,65,60],'b-polishfish':[38,20,55],'b-salmonteriyaki':[38,30,80],'b-squid':[35,8,70],'b-paella':[35,12,85],'b-tilapiafoil':[40,10,40],
+ 'b-fishtacos':[35,25,65],'b-shrimpstir':[35,8,75],'b-macncheese':[32,35,85],'b-eggplantparm':[25,30,35],'b-shuba':[15,30,22],'b-crab':[15,18,40],'b-mimosa':[18,26,20],'b-caprese':[17,22,8],
+ 'b-chickpineapple':[32,22,22],'b-tabbouleh':[6,12,35],'b-funchoza':[25,10,70],'b-vegsour':[4,9,10]};
+function macOf(id){var r=R[id];var k=r&&r.src||id;return MAC[k]||(R[k]&&R[k].mac)||null}
+function bju(id,kcal){var m=macOf(id);if(!m||!kcal)return null;var t=4*m[0]+9*m[1]+4*m[2];return [Math.round(m[0]*kcal/t),Math.round(m[1]*kcal/t),Math.round(m[2]*kcal/t)]}
+function bjuC(id,kcal){var b=bju(id,kcal);return b?' <small class="bju">Б'+b[0]+' Ж'+b[1]+' У'+b[2]+'</small>':''}
+function kbjuBlock(id){if(!PRIV)return '';var k=kcalPair(id);if(!k)return '';var bm=bju(id,k.m),bp=bju(id,k.p);
+  var row=function(n,cls,kc,b){return '<tr><td class="n '+cls+'">'+n+'</td><td>'+kc+'</td><td>'+(b?b[0]:'—')+'</td><td>'+(b?b[1]:'—')+'</td><td>'+(b?b[2]:'—')+'</td></tr>'};
+  return '<div class="tbl kbju"><table><thead><tr><th>Порция</th><th>Ккал</th><th>Белки</th><th>Жиры</th><th>Углев.</th></tr></thead><tbody>'+
+    row('Миша','h',k.m,bm)+row('Поля','s',k.p,bp)+'</tbody></table></div><p class="legend">Примерно, без салата. Граммы — в готовой порции.</p>'}
+
+/* Мультиварка RED Solution RMC-M40S (чаша 5 л) и планетарный миксер */
+var MC={
+ 'b-chickplov':'«Жарка» без крышки, 15 мин: обжарьте курицу, затем лук и морковь. Добавьте специи, разровняйте сверху промытый рис, воткните головку чеснока, влейте 700 мл кипятка и посолите. Программа «Плов». Перемешайте и дайте постоять 10 мин на подогреве.',
+ 'b-meatplov':'«Жарка» без крышки, 15 мин: мясо до корочки, затем лук и морковь со специями. Влейте 300 мл воды и «Тушение» 40 мин, чтобы мясо стало мягким. Сверху рис ровным слоем, чеснок и кипяток на 1,5 см выше риса, посолите. Программа «Плов».',
+ 'b-goulash':'«Жарка» без крышки, 15 мин: мясо порциями, затем лук, перец, паприка и томатная паста. Влейте 500 мл горячей воды, посолите. «Тушение» 1 ч 30 мин. Макароны отварите на плите.',
+ 'b-beefprunes':'«Жарка» без крышки, 15 мин: мясо, затем лук и морковь. Добавьте чернослив, воду до половины мяса, соль и лавровый лист. «Тушение» 1 ч 30 мин.',
+ 'b-meatballs':'Гречку сварите заранее на «Рис/Крупы» (240 г на 480 мл воды) и переложите. «Жарка» 10 мин: тефтели порциями, затем лук и морковь. Залейте томатами, сметаной и 150 мл воды. «Тушение» 40 мин.',
+ 'b-lazygolub':'«Жарка» без крышки: обжарьте голубцы по 3 мин с двух сторон порциями. Сложите в чашу, залейте томатно-сметанным соусом. «Тушение» 45 мин.',
+ 'b-stuffedpep':'Поставьте наполненные перцы в чашу вертикально, добавьте зажарку, томаты и воду до середины перцев, посолите. «Тушение» 1 ч.',
+ 'b-chickstew':'«Жарка» 10 мин: курица, лук, морковь. Добавьте картофель, кабачок, перец, томаты и 100 мл воды, посолите. «Тушение» 40 мин.',
+ 'b-kupecheskaya':'«Жарка» 12 мин: курица, затем лук и морковь. Добавьте промытую гречку, томатную пасту, сметану и 500 мл кипятка, посолите. Программа «Рис/Крупы».',
+ 'b-chakhokhbili':'«Жарка» без крышки, 15 мин: курица без масла до корочки, затем лук. Добавьте тёртые помидоры и перец, посолите. «Тушение» 40 мин. В конце — чеснок, хмели-сунели и кинза на подогреве 5 мин.',
+ 'b-porkpotato':'«Жарка» 10 мин: мясо до корочки. Добавьте картофель дольками, лук, чеснок, специи и 100 мл воды, посолите. «Тушение» 50 мин.',
+ 'b-ribs':'Замаринованные рёбра сложите в чашу, добавьте 100 мл воды. «Томление» 2–3 ч — мясо станет мягким. Затем подрумяньте рёбра 10 мин в духовке при 220 °C.',
+ 'b-bolognese':'Соус: «Жарка» без крышки, 15 мин: овощи, затем фарш. Добавьте томаты, соль и щепотку сахара. «Тушение» 1 ч. Пасту варите на плите.',
+ 'b-zucchinibake':'Смажьте чашу маслом, выложите массу, сверху помидоры и сыр. «Выпечка» 50 мин, затем 10 мин на подогреве. Румяной корочки сверху не будет, зато низ золотистый.',
+ 'b-codtomato':'«Жарка» 8 мин: лук и морковь. Добавьте томаты, сверху куски рыбы, посолите. «Тушение» 20 мин, не перемешивая. Рис — на плите или заранее на «Рис/Крупы».',
+ 'b-shchi':'Мясо и 2 л воды — «Суп» 1 ч 30 мин (в начале снимите пену). Добавьте картофель, капусту и зажарку (её удобно сделать заранее на «Жарке»), посолите — «Суп» ещё 30 мин.',
+ 'b-peasoup':'Промытый горох, копчёности и 2 л воды — «Суп» 2 ч. Добавьте картофель и зажарку — ещё 30 мин. Горох в мультиварке разваривается без замачивания.',
+ 'b-rassolnik':'Мясо, перловка и 2 л воды — «Суп» 1 ч. Добавьте картофель, огурцы и зажарку — ещё 30 мин.',
+ 'b-kharcho':'«Жарка» 10 мин: говядина. Влейте 2 л воды — «Суп» 1 ч 20 мин. Добавьте рис и зажарку — ещё 20 мин, в конце орехи, чеснок и специи.',
+ 'b-chicksoup':'Курица, луковица и 2 л воды — «Суп» 1 ч. Разберите мясо, добавьте картофель и морковь — 20 мин, затем лапшу — ещё 7 мин.',
+ 'b-lentilsoup':'«Жарка» 8 мин: лук, морковь, специи. Добавьте чечевицу, томаты и 1,5 л воды, посолите — «Суп» 40 мин.',
+ 'b-mushsoup':'«Жарка» 15 мин: грибы, затем лук и морковь. Добавьте картофель и 1,8 л воды, посолите — «Суп» 40 мин.',
+ 'b-cheesesoup':'Курица и 1,8 л воды — «Суп» 30 мин. Добавьте картофель и зажарку — ещё 20 мин, затем сыр на подогреве, помешивая.',
+ 'b-pumpkinsoup':'«Жарка» 5 мин: лук. Добавьте тыкву, картофель и воду до уровня овощей — «Суп» 40 мин. Пробейте блендером, добавьте сливки.',
+ 'b-minestrone':'«Жарка» 10 мин: овощи. Добавьте томаты, фасоль и 1,5 л воды — «Суп» 30 мин, затем пасту — ещё 10 мин.',
+ 'b-meatballsoup':'Вода 2 л, картофель и зажарка — «Суп» 30 мин. Опустите фрикадельки — ещё 15 мин, затем лапшу — 7 мин.',
+ 'b-ukha':'Рыба, луковица, специи и 2 л воды — «Суп» 30 мин. Достаньте рыбу, добавьте картофель и морковь — ещё 20 мин, верните рыбу.',
+ 'b-solyanka':'«Жарка» 10 мин: лук, мясные продукты и томатная паста. Добавьте огурцы, картофель и 1,8 л воды — «Суп» 40 мин.',
+ 'borscht':'Мясо и 2 л воды — «Суп» 1 ч 30 мин (в начале снимите пену). Добавьте картофель, капусту и зажарку из свёклы, моркови и лука (удобно на «Жарке» заранее) — «Суп» ещё 30 мин. В 5-литровую чашу не наливайте больше 2,5 л воды.',
+ 'chili':'«Жарка» без крышки, 15 мин: лук, перец, затем фарш и специи. Добавьте томаты, фасоль и кукурузу. «Тушение» 40 мин. Рис — на плите.',
+ 'pasta':'Соус с фрикадельками удобно готовить в мультиварке: «Жарка» — фрикадельки до корочки, затем томаты и специи, «Тушение» 25 мин. Пасту варите на плите.'};
+var MX={
+ 'b-pizza':'Тесто можно сделать самим. 300 г муки, 180 мл тёплой воды, 4 г сухих дрожжей, 1 ч. л. соли, 1 ст. л. оливкового масла — крюк, 1–2 мин на малой скорости, затем 6–8 мин на средней, пока тесто не станет гладким и не начнёт отлипать от стенок. Накройте и дайте подняться 1 час.',
+ 'b-syrniki':'Творог с яйцами, сахаром и солью — насадкой-лопаткой 1 мин на малой скорости, затем добавьте муку и перемешайте ещё 20–30 секунд. Не взбивайте долго, иначе масса станет жидкой.'};
+var MX_MINCE='Фарш удобно вымешать насадкой-лопаткой 1–2 мин на малой скорости — котлеты будут сочнее и не развалятся.';
+var MX_MASH='Пюре: горячий картофель с маслом и горячим молоком — лопаткой 1 мин на малой скорости, затем 30 секунд на средней. Не дольше, иначе пюре станет клейким.';
+['b-kotlety','b-chickcutlet','b-turkeycutlet','b-fishcakes','b-meatballs','b-lazygolub','b-stuffedpep','b-meatballsoup','pasta'].forEach(function(k){MX[k]=(MX[k]?MX[k]+' ':'')+MX_MINCE});
+['b-chickcutlet','b-stroganoff','b-beefprunes'].forEach(function(k){MX[k]=(MX[k]?MX[k]+' ':'')+MX_MASH});
+function grainTip(r){var g=(r.ing||[]).map(function(a){return a[0]}).join(' ');
+  if(/(^|\s)(Рис|Гречка|Булгур|Киноа)/.test(g)&&!/для тефтелей/.test(g))return 'Гарнир (рис, гречку, булгур) можно сварить в мультиварке на «Рис/Крупы»: крупа и вода 1 к 2, посолить. Пока варится, плита свободна для основного блюда. Можно поставить отложенный старт, чтобы гарнир был готов к ужину.';return ''}
+Object.keys(R).forEach(function(k){if(MC[k])R[k].mcFull=true});
+function techBlock(id){var r=R[id];if(!r||r.leftover)return '';var mc=MC[id]||r.mc||grainTip(r),mx=MX[id]||'';if(!mc&&!mx)return '';
+  return '<section class="blk"><h3>Техника</h3>'+(mc?'<div class="tech"><b>Мультиварка RED Solution</b><p>'+esc(mc)+'</p></div>':'')+(mx?'<div class="tech"><b>Планетарный миксер</b><p>'+esc(mx)+'</p></div>':'')+'</section>'}
 
 /* ---------- Комментарии к блюдам: сколько угодно, с именем и датой ---------- */
 var ME=store.get('me',null);
